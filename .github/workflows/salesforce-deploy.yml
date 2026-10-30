@@ -1,0 +1,55 @@
+name: 'Salesforce: deploy'
+
+# Deploys the Salesforce metadata and runs all Apex tests when salesforce/ changes on main.
+# The agent itself is published separately (sf agent publish authoring-bundle), see docs/SETUP-GUIDE.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'salesforce/force-app/**'
+  workflow_dispatch:
+
+concurrency:
+  group: salesforce-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Skipped until the org login is configured (docs/CI-CD.md)
+    if: vars.SALESFORCE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: salesforce
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Log in
+        env:
+          SF_AUTH_URL: ${{ secrets.SF_AUTH_URL }}
+        run: |
+          [ -z "$SF_AUTH_URL" ] && { echo "::error::Secret SF_AUTH_URL is not set. See docs/CI-CD.md"; exit 1; }
+          echo "$SF_AUTH_URL" > auth-url.txt
+          sf org login sfdx-url --sfdx-url-file auth-url.txt --alias orderintake --set-default
+          rm auth-url.txt
+
+      - name: Deploy and run Apex tests
+        run: >
+          sf project deploy start
+          --source-dir force-app/main/default/classes
+          --source-dir force-app/main/default/triggers
+          --source-dir force-app/main/default/objects
+          --source-dir force-app/main/default/layouts
+          --source-dir force-app/main/default/permissionsets
+          --source-dir force-app/main/default/genAiPromptTemplates
+          --source-dir force-app/main/default/applications
+          --source-dir force-app/main/default/tabs
+          --test-level RunLocalTests
+          --wait 30

@@ -14,7 +14,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <app.runtime>4.9.0</app.runtime>
-        <mule.maven.plugin.version>4.3.0</mule.maven.plugin.version>
+        <mule.maven.plugin.version>4.10.0</mule.maven.plugin.version>
+        <!-- CloudHub 2.0 deployment (mvn deploy -DmuleDeploy), values passed by GitHub Actions -->
+        <anypoint.orgId>set-by-ci</anypoint.orgId>
+        <anypoint.clientId>set-by-ci</anypoint.clientId>
+        <anypoint.clientSecret>set-by-ci</anypoint.clientSecret>
+        <anypoint.environment>Sandbox</anypoint.environment>
+        <anypoint.target>Cloudhub-US-East-2</anypoint.target>
+        <anypoint.appName>order-intake-erp-api</anypoint.appName>
+        <anypoint.muleVersion>4.13.1</anypoint.muleVersion>
+        <anypoint.releaseChannel>EDGE</anypoint.releaseChannel>
     </properties>
 
     <build>
@@ -29,6 +38,29 @@
                 <artifactId>mule-maven-plugin</artifactId>
                 <version>${mule.maven.plugin.version}</version>
                 <extensions>true</extensions>
+                <configuration>
+                    <classifier>mule-application</classifier>
+                    <cloudhub2Deployment>
+                        <uri>https://anypoint.mulesoft.com</uri>
+                        <provider>MC</provider>
+                        <environment>${anypoint.environment}</environment>
+                        <target>${anypoint.target}</target>
+                        <muleVersion>${anypoint.muleVersion}</muleVersion>
+                        <releaseChannel>${anypoint.releaseChannel}</releaseChannel>
+                        <javaVersion>17</javaVersion>
+                        <applicationName>${anypoint.appName}</applicationName>
+                        <businessGroupId>${anypoint.orgId}</businessGroupId>
+                        <replicas>1</replicas>
+                        <vCores>0.1</vCores>
+                        <connectedAppClientId>${anypoint.clientId}</connectedAppClientId>
+                        <connectedAppClientSecret>${anypoint.clientSecret}</connectedAppClientSecret>
+                        <connectedAppGrantType>client_credentials</connectedAppGrantType>
+                        <secureProperties>
+                            <odoo.apiKey>${odoo.apiKey}</odoo.apiKey>
+                            <api.key>${api.key}</api.key>
+                        </secureProperties>
+                    </cloudhub2Deployment>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -67,4 +99,12 @@
             </snapshots>
         </pluginRepository>
     </pluginRepositories>
+    <distributionManagement>
+        <repository>
+            <id>anypoint-exchange-v3</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${anypoint.orgId}/maven</url>
+            <layout>default</layout>
+        </repository>
+    </distributionManagement>
 </project>

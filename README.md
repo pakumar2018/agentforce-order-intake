@@ -28,7 +28,7 @@ Customer email (Gmail)
 | [`mulesoft/order-intake-erp-api/`](mulesoft/order-intake-erp-api) | Mule 4 app: ERP API (`POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`) that creates and confirms Odoo sales orders |
 | [`odoo-setup/`](odoo-setup) | Odoo products and customers matching the Salesforce demo data |
 | [`demo-purchase-orders/`](demo-purchase-orders) | Four fictional PO PDFs (one per demo scenario) and their generator |
-| [`docs/`](docs) | [Project write-up](docs/PROJECT-WRITEUP.md), [setup guide](docs/SETUP-GUIDE.md), [agent spec](docs/Order_Intake_Assistant-AgentSpec.md), [test cases](docs/TEST-CASES.md), [demo script](docs/DEMO-SCRIPT.md) |
+| [`docs/`](docs) | [Project write-up](docs/PROJECT-WRITEUP.md), [setup guide](docs/SETUP-GUIDE.md), [CI/CD](docs/CI-CD.md), [agent spec](docs/Order_Intake_Assistant-AgentSpec.md), [test cases](docs/TEST-CASES.md), [demo script](docs/DEMO-SCRIPT.md) |
 
 ## Highlights
 - **Agentforce employee agent** in Agent Script with three subagents (intake review, ERP sync, customer reply),
@@ -42,3 +42,7 @@ Customer email (Gmail)
 ## Setup
 See [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md). No credentials are stored in this repository: secrets are
 supplied as Anypoint secure properties and Salesforce External Credential parameters. All customer data is fictional.
+
+## Continuous deployment
+GitHub Actions deploy both MuleSoft apps to CloudHub 2.0 and the Salesforce metadata on every push to `main`
+(see [docs/CI-CD.md](docs/CI-CD.md) and [.github/workflows](.github/workflows)).

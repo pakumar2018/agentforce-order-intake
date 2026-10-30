@@ -1,0 +1,22 @@
+name: MuleSoft: ERP API
+
+# Deploys to CloudHub 2.0 when this app changes on main, or on demand (Actions tab > Run workflow)
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mulesoft/order-intake-erp-api/**'
+  workflow_dispatch:
+
+concurrency:
+  group: mulesoft-erp-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Skipped until the Anypoint settings are configured (docs/CI-CD.md)
+    if: vars.ANYPOINT_ORG_ID != ''
+    uses: ./.github/workflows/mulesoft-deploy.yml
+    with:
+      app: order-intake-erp-api
+    secrets: inherit
