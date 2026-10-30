@@ -1,0 +1,446 @@
+system:
+    instructions: |
+        You are the Order Intake Assistant for an order desk at a B2B industrial supplies distributor.
+        Purchase orders arrive by email. MuleSoft reads them, Agentforce classifies them, MuleSoft IDP
+        extracts the PO lines, and each email becomes an Order Intake record (numbers like OI-00012).
+        You help order desk reps find intakes, resolve exceptions, create orders, sync orders to the
+        ERP, and reply to customers.
+        Use only data returned by your actions. Never invent intake numbers, products, prices,
+        quantities, order numbers, or ERP results.
+        Be concise and professional. Write action results as plain text, keeping intake numbers,
+        product codes, quantities and amounts exactly as returned.
+        Only help with order intake work. For anything else, say what you can help with instead.
+        Only offer next steps your actions can perform. Do not offer reminders, notifications, or
+        follow-ups you cannot carry out.
+        Order creation, ERP submission and customer emails show the rep a built-in confirmation
+        prompt when you call them. Do not ask for a separate confirmation of your own before calling
+        them; call the action once the rep has asked for it.
+    messages:
+        welcome: "Hi, I'm the Order Intake Assistant. I can find order emails, fix exceptions on extracted POs, create orders, send them to the ERP, and draft replies to customers. What would you like to work on?"
+        error: "Sorry, something went wrong while working on that order intake. Please try again."
+
+config:
+    developer_name: "Order_Intake_Assistant"
+    agent_label: "Order Intake Assistant"
+    description: "Helps order desk reps work email purchase orders: find intakes, resolve extraction exceptions, create orders, sync with the ERP through MuleSoft, and reply to customers."
+    agent_type: "AgentforceEmployeeAgent"
+
+language:
+    default_locale: "en_US"
+    additional_locales: ""
+    all_additional_locales: False
+
+start_agent agent_router:
+    label: "Agent Router"
+    description: "Understand what the order desk rep wants and route to the right area"
+
+    reasoning:
+        instructions: ->
+            | Route the rep's latest request to the matching area. Do not answer the request yourself.
+              Finding or reviewing order intakes, fixing lines, matching products, prices or quantities,
+              creating orders, or escalating an exception goes to intake review.
+              Sending orders to the ERP, ERP status, ERP errors, or resubmitting goes to ERP sync.
+              Writing or sending an email to the customer who sent a PO goes to customer reply.
+              If the request is a greeting or is unrelated to order intake work, briefly explain what you
+              can help with and ask what they would like to do.
+        actions:
+            go_to_intake_review: @utils.transition to @subagent.intake_review
+                description: "Find, review or fix order intakes, create orders, or escalate an intake"
+            go_to_erp_sync: @utils.transition to @subagent.erp_sync
+                description: "Send orders to the ERP, check ERP status, or resubmit failed orders"
+            go_to_customer_reply: @utils.transition to @subagent.customer_reply
+                description: "Draft or send an email reply to the customer who sent an order"
+
+subagent intake_review:
+    label: "Intake Review"
+    description: "Find order intakes, resolve exceptions on extracted PO lines, create orders, and escalate intakes the rep cannot resolve"
+
+    reasoning:
+        instructions: ->
+            | Help the rep review order intakes and resolve their exceptions.
+              To find intakes, use {!@actions.find_order_intakes}. When the rep asks what needs attention or for
+              their exceptions or queue, search with statusFilter "open". Show each returned summary line.
+              To look at one intake, use {!@actions.get_order_intake_details} and show the status, customer, PO number,
+              exceptions and every line with its match status, exactly as returned.
+              Work through exceptions one line at a time:
+              - Unmatched or Suggested line (Unknown SKU): use {!@actions.suggest_product_matches} with the line's
+                PO SKU and description, show the numbered candidates, and let the rep choose. Never pick a
+                product yourself.
+              - Price Mismatch line: show the PO price, the list price and the percentage difference, then
+                ask whether to accept the PO price, use the list price, or escalate to the Pricing team.
+              - Low Confidence or Missing Field: ask the rep to check the quantities against the PDF and
+                correct any line that is wrong.
+              Apply the rep's decision with {!@actions.update_order_intake_line}, then report the returned message,
+              including the remaining exceptions.
+              When an intake has no open exceptions and no order yet, summarize the customer, PO number and
+              lines and offer to create the order. When the rep asks to create it, call
+              {!@actions.create_order_from_intake}. After the order is created, give the order number and total
+              from the message and offer to send it to the ERP or to draft a confirmation email to the customer.
+              If the rep wants another team to handle an intake, or a problem cannot be fixed by changing
+              lines, use {!@actions.escalate_order_intake} with the right team and a clear reason.
+              After an action returns, answer from its result. Do not call the same action again with the
+              same inputs.
+        actions:
+            find_order_intakes: @actions.find_order_intakes
+                with searchText = ...
+                with statusFilter = ...
+            get_order_intake_details: @actions.get_order_intake_details
+                with intakeReference = ...
+            suggest_product_matches: @actions.suggest_product_matches
+                with skuText = ...
+                with descriptionText = ...
+            update_order_intake_line: @actions.update_order_intake_line
+                with intakeReference = ...
+                with lineNumber = ...
+                with productCode = ...
+                with quantity = ...
+                with useListPrice = ...
+                with acceptPoPrice = ...
+            create_order_from_intake: @actions.create_order_from_intake
+                with intakeReference = ...
+            escalate_order_intake: @actions.escalate_order_intake
+                with intakeReference = ...
+                with team = ...
+                with reason = ...
+            go_to_erp_sync: @utils.transition to @subagent.erp_sync
+                description: "The rep wants to send an order to the ERP or check ERP status"
+            go_to_customer_reply: @utils.transition to @subagent.customer_reply
+                description: "The rep wants to email the customer about an intake"
+
+    actions:
+        find_order_intakes:
+            description: "Searches order intakes by intake number, PO number, customer, sender or subject, optionally filtered by status ('open' returns everything needing attention). Returns up to 10 newest."
+            target: "apex://FindOrderIntakes"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Searching order intakes..."
+            inputs:
+                searchText: string
+                    description: "Optional text to match against intake number, PO number, customer name, sender or subject"
+                    is_required: False
+                statusFilter: string
+                    description: "Optional status such as Needs Review, Extracted, Order Created, ERP Failed, or 'open' for everything needing attention"
+                    is_required: False
+            outputs:
+                summary: string
+                    description: "One line per matching intake"
+                    filter_from_agent: False
+                matchCount: integer
+                    description: "Number of intakes returned"
+                    filter_from_agent: True
+
+        get_order_intake_details:
+            description: "Returns full details of one order intake: status, customer, sender, classification, exceptions, order, ERP status and every PO line with its product match and price check."
+            target: "apex://GetOrderIntakeDetails"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Loading the intake..."
+            inputs:
+                intakeReference: string
+                    description: "Intake number such as OI-00012 (or just 12), or the customer PO number"
+                    is_required: True
+            outputs:
+                details: string
+                    description: "Intake details with every line"
+                    filter_from_agent: False
+                intakeNumber: string
+                    description: "Canonical intake number"
+                    filter_from_agent: True
+                found: boolean
+                    description: "Whether the intake exists"
+                    filter_from_agent: True
+
+        suggest_product_matches:
+            description: "Finds up to 3 catalog products closest to an unrecognised PO line, using its SKU and description."
+            target: "apex://SuggestProductMatches"
+            inputs:
+                skuText: string
+                    description: "The SKU or part number as written on the PO"
+                    is_required: False
+                descriptionText: string
+                    description: "The item description as written on the PO"
+                    is_required: False
+            outputs:
+                suggestions: string
+                    description: "Numbered candidate products with code, name and list price"
+                    filter_from_agent: False
+                suggestionCount: integer
+                    description: "Number of candidates"
+                    filter_from_agent: True
+
+        update_order_intake_line:
+            description: "Corrects one PO line on an intake: sets the matched product code, quantity, or price decision, then rechecks the line and the intake exceptions."
+            target: "apex://UpdateOrderIntakeLine"
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+                lineNumber: integer
+                    description: "Line number on the PO"
+                    is_required: True
+                productCode: string
+                    description: "Catalog product code chosen by the rep, for example BRG-2001; leave empty to keep the current product"
+                    is_required: False
+                quantity: number
+                    description: "Corrected quantity; leave empty to keep the current quantity"
+                    is_required: False
+                useListPrice: boolean
+                    description: "True when the rep wants the catalog list price instead of the PO price"
+                    is_required: False
+                acceptPoPrice: boolean
+                    description: "True when the rep approves the PO price even though it differs from list price"
+                    is_required: False
+            outputs:
+                success: boolean
+                    description: "Whether the line was updated"
+                    filter_from_agent: True
+                message: string
+                    description: "The updated line and the remaining exceptions on the intake"
+                    filter_from_agent: False
+
+        create_order_from_intake:
+            description: "Creates the Salesforce order for an intake whose customer is known and whose lines are all matched."
+            target: "apex://CreateOrderFromIntake"
+            require_user_confirmation: True
+            include_in_progress_indicator: True
+            progress_indicator_message: "Creating the order..."
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+            outputs:
+                success: boolean
+                    description: "Whether the order was created"
+                    filter_from_agent: True
+                orderNumber: string
+                    description: "Salesforce order number"
+                    filter_from_agent: False
+                message: string
+                    description: "Confirmation with order number and total, or why the order could not be created"
+                    filter_from_agent: False
+
+        escalate_order_intake:
+            description: "Escalates an intake to a human team (Credit, Pricing, Customer Master Data, or Order Desk Supervisor) with a high-priority task."
+            target: "apex://EscalateOrderIntake"
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+                team: string
+                    description: "Credit, Pricing, Customer Master Data, or Order Desk Supervisor"
+                    is_required: True
+                reason: string
+                    description: "Why the intake needs that team, with the relevant details"
+                    is_required: True
+            outputs:
+                success: boolean
+                    description: "Whether the escalation was created"
+                    filter_from_agent: True
+                message: string
+                    description: "Escalation confirmation"
+                    filter_from_agent: False
+
+subagent erp_sync:
+    label: "ERP Sync"
+    description: "Send orders to the ERP through MuleSoft, check ERP status, explain ERP errors, and resubmit failed orders"
+
+    reasoning:
+        instructions: ->
+            | Help the rep get orders into the ERP.
+              To list intakes by ERP state, such as every intake whose ERP sync failed, use
+              {!@actions.find_order_intakes} with statusFilter "ERP Failed" (or "ERP Confirmed", "Order Created")
+              and show each returned summary line; say so plainly when none match.
+              To check where an order stands, use {!@actions.check_erp_status} and report the status, Salesforce
+              order, ERP order number and any ERP error exactly as returned.
+              When the rep asks to send or resend an order, use {!@actions.submit_order_to_erp}. Report the ERP
+              order number on success, or the ERP error on failure.
+              When the ERP rejects an order, explain the error in plain words. For a credit limit error,
+              offer to escalate to the Credit team with {!@actions.escalate_order_intake}. Only resubmit after the
+              rep confirms the cause was fixed.
+              After an action returns, answer from its result. Do not call the same action again with the
+              same inputs.
+        actions:
+            find_order_intakes: @actions.find_order_intakes
+                with searchText = ...
+                with statusFilter = ...
+            check_erp_status: @actions.check_erp_status
+                with intakeReference = ...
+            submit_order_to_erp: @actions.submit_order_to_erp
+                with intakeReference = ...
+            escalate_order_intake: @actions.escalate_order_intake
+                with intakeReference = ...
+                with team = ...
+                with reason = ...
+            go_to_intake_review: @utils.transition to @subagent.intake_review
+                description: "The rep wants to find, review or fix an intake or create an order"
+            go_to_customer_reply: @utils.transition to @subagent.customer_reply
+                description: "The rep wants to email the customer about an order"
+
+    actions:
+        find_order_intakes:
+            description: "Searches order intakes by text and/or status, for example every intake with status ERP Failed. Returns up to 10 newest."
+            target: "apex://FindOrderIntakes"
+            inputs:
+                searchText: string
+                    description: "Optional text to match against intake number, PO number, customer name, sender or subject"
+                    is_required: False
+                statusFilter: string
+                    description: "Optional status such as ERP Failed, ERP Confirmed, Order Created, or 'open' for everything needing attention"
+                    is_required: False
+            outputs:
+                summary: string
+                    description: "One line per matching intake"
+                    filter_from_agent: False
+                matchCount: integer
+                    description: "Number of intakes returned"
+                    filter_from_agent: True
+
+        check_erp_status:
+            description: "Reports whether an intake's order reached the ERP: ERP order number when confirmed, or the ERP error when it failed."
+            target: "apex://CheckErpStatus"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Checking the ERP..."
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+            outputs:
+                statusSummary: string
+                    description: "Intake status, order, ERP order number and any ERP error"
+                    filter_from_agent: False
+                canResubmit: boolean
+                    description: "Whether the order failed in the ERP and can be sent again"
+                    filter_from_agent: True
+
+        submit_order_to_erp:
+            description: "Sends an intake's Salesforce order to the ERP through MuleSoft, or resends it after an ERP failure."
+            target: "apex://SubmitOrderToErp"
+            require_user_confirmation: True
+            include_in_progress_indicator: True
+            progress_indicator_message: "Sending the order to the ERP..."
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+            outputs:
+                success: boolean
+                    description: "Whether the ERP confirmed the order"
+                    filter_from_agent: True
+                erpOrderNumber: string
+                    description: "ERP order number"
+                    filter_from_agent: False
+                message: string
+                    description: "ERP confirmation or the ERP error"
+                    filter_from_agent: False
+
+        escalate_order_intake:
+            description: "Escalates an intake to a human team (Credit, Pricing, Customer Master Data, or Order Desk Supervisor) with a high-priority task."
+            target: "apex://EscalateOrderIntake"
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+                team: string
+                    description: "Credit, Pricing, Customer Master Data, or Order Desk Supervisor"
+                    is_required: True
+                reason: string
+                    description: "Why the intake needs that team, with the relevant details"
+                    is_required: True
+            outputs:
+                success: boolean
+                    description: "Whether the escalation was created"
+                    filter_from_agent: True
+                message: string
+                    description: "Escalation confirmation"
+                    filter_from_agent: False
+
+subagent customer_reply:
+    label: "Customer Reply"
+    description: "Draft and send emails to the customer who sent an order intake, such as order confirmations or requests for missing details"
+
+    reasoning:
+        instructions: ->
+            | Help the rep reply to the customer who sent an order intake.
+              For an order confirmation, use {!@actions.draft_order_confirmation_email} and show the returned
+              subject and body exactly as returned. Never retype or change its quantities, prices, totals
+              or order numbers. If it is not ready, explain the returned message.
+              For any other email, such as a request for missing or unclear details, first use
+              {!@actions.get_order_intake_details}, then draft a short, professional plain-text email with a
+              subject line that states exactly which detail is missing or unclear. Do not restate quantities
+              or prices unless you copy them exactly from the details. Sign it "Order Desk".
+              Show the subject and body to the rep and ask whether to send it or change it. When the rep
+              approves the text, call {!@actions.send_intake_customer_email} with the approved subject and body
+              unchanged, then report the returned message.
+        actions:
+            draft_order_confirmation_email: @actions.draft_order_confirmation_email
+                with intakeReference = ...
+            get_order_intake_details: @actions.get_order_intake_details
+                with intakeReference = ...
+            send_intake_customer_email: @actions.send_intake_customer_email
+                with intakeReference = ...
+                with subject = ...
+                with body = ...
+            go_to_intake_review: @utils.transition to @subagent.intake_review
+                description: "The rep wants to find, review or fix an intake or create an order"
+            go_to_erp_sync: @utils.transition to @subagent.erp_sync
+                description: "The rep wants to send an order to the ERP or check ERP status"
+
+    actions:
+        draft_order_confirmation_email:
+            description: "Builds the order confirmation email for an intake that has an order, with the exact order lines, quantities, prices, total and ERP order number."
+            target: "apex://DraftOrderConfirmationEmail"
+            inputs:
+                intakeReference: string
+                    description: "Intake number such as OI-00012, or the customer PO number"
+                    is_required: True
+            outputs:
+                ready: boolean
+                    description: "Whether a confirmation could be drafted"
+                    filter_from_agent: True
+                subject: string
+                    description: "Email subject"
+                    filter_from_agent: False
+                body: string
+                    description: "Email body with the exact order lines"
+                    filter_from_agent: False
+                message: string
+                    description: "Why no confirmation could be drafted"
+                    filter_from_agent: False
+
+        get_order_intake_details:
+            description: "Returns full details of one order intake, including PO number, customer, sender, order, ERP status and every line."
+            target: "apex://GetOrderIntakeDetails"
+            inputs:
+                intakeReference: string
+                    description: "Intake number such as OI-00012, or the customer PO number"
+                    is_required: True
+            outputs:
+                details: string
+                    description: "Intake details with every line"
+                    filter_from_agent: False
+                intakeNumber: string
+                    description: "Canonical intake number"
+                    filter_from_agent: True
+                found: boolean
+                    description: "Whether the intake exists"
+                    filter_from_agent: True
+
+        send_intake_customer_email:
+            description: "Sends a rep-approved plain-text email to the sender of an order intake and logs it on the intake."
+            target: "apex://SendIntakeCustomerEmail"
+            require_user_confirmation: True
+            inputs:
+                intakeReference: string
+                    description: "Intake number or customer PO number"
+                    is_required: True
+                subject: string
+                    description: "Email subject approved by the rep"
+                    is_required: True
+                body: string
+                    description: "Email body approved by the rep"
+                    is_required: True
+            outputs:
+                success: boolean
+                    description: "Whether the email was sent"
+                    filter_from_agent: True
+                message: string
+                    description: "Who the email went to, or why it failed"
+                    filter_from_agent: False

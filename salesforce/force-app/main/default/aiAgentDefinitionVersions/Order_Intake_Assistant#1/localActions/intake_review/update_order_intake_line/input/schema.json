@@ -1,0 +1,49 @@
+{
+  "required" : [ "intakeReference", "lineNumber" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "acceptPoPrice" : {
+      "title" : "Accept Po Price",
+      "description" : "True when the rep approves the PO price even though it differs from list price",
+      "lightning:type" : "lightning__booleanType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "intakeReference" : {
+      "title" : "Intake Reference",
+      "description" : "Intake number or customer PO number",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "lineNumber" : {
+      "title" : "Line Number",
+      "description" : "Line number on the PO",
+      "lightning:type" : "lightning__integerType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "productCode" : {
+      "title" : "Product Code",
+      "description" : "Catalog product code chosen by the rep, for example BRG-2001; leave empty to keep the current product",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "quantity" : {
+      "title" : "Quantity",
+      "description" : "Corrected quantity; leave empty to keep the current quantity",
+      "lightning:type" : "lightning__numberType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "useListPrice" : {
+      "title" : "Use List Price",
+      "description" : "True when the rep wants the catalog list price instead of the PO price",
+      "lightning:type" : "lightning__booleanType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

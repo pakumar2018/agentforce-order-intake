@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <classAccesses><apexClass>OrderIntakeExtractionApi</apexClass><enabled>true</enabled></classAccesses>
+    <classAccesses><apexClass>OrderIntakeService</apexClass><enabled>true</enabled></classAccesses>
+    <description>MuleSoft integration user: create and update Order Intake records via API.</description>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Gmail_Message_Id__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Source_Email_From__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Subject__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Received_At__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Email_Body__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Account__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Classification__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Classification_Confidence__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Classification_Reason__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Extraction_Confidence__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Extracted_Payload__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Customer_PO_Number__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Status__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Exception_Reason__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Order__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.ERP_Order_Number__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.ERP_Error__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Processing_Error__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Extraction_Source__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Case.Order_Intake__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake__c.Mule_Correlation_Id__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Line_No__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Raw_SKU__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Raw_Description__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Quantity__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Unit_Price_On_PO__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Product__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.List_Price__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>true</editable><field>Order_Intake_Line__c.Match_Status__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>false</editable><field>Order_Intake_Line__c.Price_Variance__c</field><readable>true</readable></fieldPermissions>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Order Intake Integration</label>
+    <objectPermissions><allowCreate>true</allowCreate><allowDelete>false</allowDelete><allowEdit>true</allowEdit><allowRead>true</allowRead><modifyAllRecords>false</modifyAllRecords><object>Case</object><viewAllRecords>false</viewAllRecords></objectPermissions>
+    <objectPermissions><allowCreate>true</allowCreate><allowDelete>false</allowDelete><allowEdit>true</allowEdit><allowRead>true</allowRead><modifyAllRecords>false</modifyAllRecords><object>Order_Intake__c</object><viewAllRecords>true</viewAllRecords></objectPermissions>
+    <objectPermissions><allowCreate>true</allowCreate><allowDelete>false</allowDelete><allowEdit>true</allowEdit><allowRead>true</allowRead><modifyAllRecords>false</modifyAllRecords><object>Order_Intake_Line__c</object><viewAllRecords>true</viewAllRecords></objectPermissions>
+    <userPermissions><enabled>true</enabled><name>ApiEnabled</name></userPermissions>
+</PermissionSet>

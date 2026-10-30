@@ -1,0 +1,28 @@
+{
+  "required" : [ "intakeReference", "subject", "body" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "body" : {
+      "title" : "Body",
+      "description" : "Email body approved by the rep",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "intakeReference" : {
+      "title" : "Intake Reference",
+      "description" : "Intake number or customer PO number",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "subject" : {
+      "title" : "Subject",
+      "description" : "Email subject approved by the rep",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

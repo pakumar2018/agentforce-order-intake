@@ -1,0 +1,14 @@
+{
+  "required" : [ "intakeReference" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "intakeReference" : {
+      "title" : "Intake Reference",
+      "description" : "Intake number such as OI-00012 (or just 12), or the customer PO number",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

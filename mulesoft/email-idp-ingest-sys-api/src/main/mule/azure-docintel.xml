@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Azure AI Document Intelligence: analyze the PO PDF in vars.pdf with the prebuilt invoice model
+  (it returns PurchaseOrder, CustomerId and Items with ProductCode / Quantity / UnitPrice).
+    POST https://{ocr.host}/documentintelligence/documentModels/{ocr.model}:analyze?api-version={ocr.apiVersion}
+      -> 202 with an Operation-Location header
+    GET  Operation-Location until status is succeeded or failed
+  Auth: the resource key in the Ocp-Apim-Subscription-Key header (property ocr.apiKey).
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <http:request-config name="Azure_DocIntel_HTTP" doc:name="Azure Document Intelligence">
+        <http:request-connection protocol="HTTPS" host="${ocr.host}" port="443"/>
+    </http:request-config>
+
+    <!-- Every purchase order PDF is read by Azure; the result becomes vars.extraction for Salesforce -->
+    <sub-flow name="extract-po-with-azure">
+        <flow-ref name="azure-analyze-po" doc:name="Analyze with Azure Document Intelligence"/>
+        <flow-ref name="map-azure-result" doc:name="Map Azure result"/>
+        <set-variable variableName="extraction" value="#[output application/java --- payload]" doc:name="extraction"/>
+    </sub-flow>
+
+    <sub-flow name="azure-analyze-po">
+        <http:request method="POST" config-ref="Azure_DocIntel_HTTP" doc:name="Start analysis"
+                      path="/documentintelligence/documentModels/${ocr.model}:analyze">
+            <http:body><![CDATA[#[vars.pdf.content]]]></http:body>
+            <http:headers><![CDATA[#[output application/java --- {
+                'Ocp-Apim-Subscription-Key': p('ocr.apiKey'),
+                'Content-Type': 'application/pdf'
+            }]]]></http:headers>
+            <http:query-params><![CDATA[#[output application/java --- { 'api-version': p('ocr.apiVersion') }]]]></http:query-params>
+        </http:request>
+        <!-- Operation-Location is a full URL on the same host; keep only its path -->
+        <set-variable variableName="ocrResultPath" doc:name="Result path"
+                      value="#[output application/java --- (((attributes.headers.'operation-location' default '') as String) splitBy '?')[0] replace /^https?:\/\/[^\/]+/ with '']"/>
+        <logger level="INFO" message="#[output application/java --- 'Azure analysis started for ' ++ vars.pdf.name ++ ': ' ++ vars.ocrResultPath]" doc:name="Log start"/>
+
+        <until-successful maxRetries="${ocr.maxPolls}" millisBetweenRetries="${ocr.pollMillis}" doc:name="Wait for Azure">
+            <http:request method="GET" config-ref="Azure_DocIntel_HTTP" path="#[vars.ocrResultPath]" doc:name="Get analysis result">
+                <http:headers><![CDATA[#[output application/java --- { 'Ocp-Apim-Subscription-Key': p('ocr.apiKey') }]]]></http:headers>
+                <http:query-params><![CDATA[#[output application/java --- { 'api-version': p('ocr.apiVersion') }]]]></http:query-params>
+            </http:request>
+            <set-variable variableName="ocrStatus" value="#[output application/java --- lower((payload.status default 'running') as String)]" doc:name="Azure status"/>
+            <choice doc:name="Still running?">
+                <when expression="#[output application/java --- ['notstarted', 'running'] contains vars.ocrStatus]">
+                    <raise-error type="APP:OCR_PENDING" description="Azure analysis still running"/>
+                </when>
+            </choice>
+        </until-successful>
+        <logger level="INFO" message="#[output application/java --- 'Azure analysis of ' ++ vars.pdf.name ++ ' finished: ' ++ vars.ocrStatus]" doc:name="Log result"/>
+
+        <choice doc:name="Succeeded?">
+            <when expression="#[output application/java --- vars.ocrStatus != 'succeeded']">
+                <raise-error type="APP:OCR_FAILED" description="#[output application/java --- 'Azure analysis of ' ++ vars.pdf.name ++ ' ended with status ' ++ vars.ocrStatus ++ ': ' ++ ((payload.error.message default '') as String)]"/>
+            </when>
+        </choice>
+    </sub-flow>
+
+    <sub-flow name="map-azure-result">
+        <ee:transform doc:name="Azure result to extraction">
+            <ee:message>
+                <ee:set-payload resource="dw/azure-to-extraction.dwl"/>
+            </ee:message>
+        </ee:transform>
+    </sub-flow>
+</mule>

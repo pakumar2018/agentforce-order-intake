@@ -1,0 +1,461 @@
+{
+  "status": "succeeded",
+  "analyzeResult": {
+    "apiVersion": "2024-11-30",
+    "modelId": "prebuilt-invoice",
+    "documents": [
+      {
+        "docType": "invoice",
+        "confidence": 1,
+        "fields": {
+          "CustomerId": {
+            "type": "string",
+            "valueString": "CUST-1001",
+            "content": "CUST-1001",
+            "confidence": 0.938
+          },
+          "CustomerName": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing - Dayton Plant",
+            "content": "Brightline Manufacturing - Dayton Plant",
+            "confidence": 0.891
+          },
+          "InvoiceTotal": {
+            "type": "currency",
+            "valueCurrency": {
+              "amount": 5760,
+              "currencyCode": "USD"
+            },
+            "content": "5,760.00",
+            "confidence": 0.948
+          },
+          "Items": {
+            "type": "array",
+            "valueArray": [
+              {
+                "type": "object",
+                "valueObject": {
+                  "Amount": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 2500,
+                      "currencyCode": "USD"
+                    },
+                    "content": "2,500.00",
+                    "confidence": 0.918
+                  },
+                  "Description": {
+                    "type": "string",
+                    "valueString": "Industrial Widget 10mm",
+                    "content": "Industrial Widget 10mm",
+                    "confidence": 0.917
+                  },
+                  "ProductCode": {
+                    "type": "string",
+                    "valueString": "WID-1001",
+                    "content": "WID-1001",
+                    "confidence": 0.878
+                  },
+                  "Quantity": {
+                    "type": "number",
+                    "valueNumber": 200,
+                    "content": "200",
+                    "confidence": 0.916
+                  },
+                  "UnitPrice": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 12.5,
+                      "currencyCode": "USD"
+                    },
+                    "content": "12.50",
+                    "confidence": 0.917
+                  }
+                },
+                "content": "1\nWID-1001\nIndustrial Widget 10mm\n200\n12.50\n2,500.00",
+                "confidence": 0.923
+              },
+              {
+                "type": "object",
+                "valueObject": {
+                  "Amount": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 2100,
+                      "currencyCode": "USD"
+                    },
+                    "content": "2,100.00",
+                    "confidence": 0.919
+                  },
+                  "Description": {
+                    "type": "string",
+                    "valueString": "Ball bearing 6204 sealed",
+                    "content": "Ball bearing 6204 sealed",
+                    "confidence": 0.916
+                  },
+                  "ProductCode": {
+                    "type": "string",
+                    "valueString": "BRG6204",
+                    "content": "BRG6204",
+                    "confidence": 0.882
+                  },
+                  "Quantity": {
+                    "type": "number",
+                    "valueNumber": 500,
+                    "content": "500",
+                    "confidence": 0.915
+                  },
+                  "UnitPrice": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 4.2,
+                      "currencyCode": "USD"
+                    },
+                    "content": "4.20",
+                    "confidence": 0.919
+                  }
+                },
+                "content": "2\nBRG6204\nBall bearing 6204 sealed\n500\n4.20\n2,100.00",
+                "confidence": 0.923
+              },
+              {
+                "type": "object",
+                "valueObject": {
+                  "Amount": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 1160,
+                      "currencyCode": "USD"
+                    },
+                    "content": "1,160.00",
+                    "confidence": 0.918
+                  },
+                  "Description": {
+                    "type": "string",
+                    "valueString": "Ball valve 1/2 in brass",
+                    "content": "Ball valve 1/2 in brass",
+                    "confidence": 0.915
+                  },
+                  "ProductCode": {
+                    "type": "string",
+                    "valueString": "VLV-5001",
+                    "content": "VLV-5001",
+                    "confidence": 0.882
+                  },
+                  "Quantity": {
+                    "type": "number",
+                    "valueNumber": 40,
+                    "content": "40",
+                    "confidence": 0.915
+                  },
+                  "UnitPrice": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 29,
+                      "currencyCode": "USD"
+                    },
+                    "content": "29.00",
+                    "confidence": 0.916
+                  }
+                },
+                "content": "3\nVLV-5001\nBall valve 1/2 in brass\n40\n29.00\n1,160.00",
+                "confidence": 0.923
+              }
+            ]
+          },
+          "PaymentTerm": {
+            "type": "string",
+            "valueString": "Net 30",
+            "content": "Net 30",
+            "confidence": 0.937
+          },
+          "PurchaseOrder": {
+            "type": "string",
+            "valueString": "45188",
+            "content": "45188",
+            "confidence": 0.945
+          },
+          "ShippingAddress": {
+            "type": "address",
+            "content": "Dock 4, 1200 Industrial Parkway\nDayton, OH 45402",
+            "confidence": 0.883,
+            "valueAddress": {
+              "houseNumber": "1200",
+              "road": "Industrial Parkway",
+              "postalCode": "45402",
+              "city": "Dayton",
+              "state": "OH",
+              "streetAddress": "1200 Industrial Parkway",
+              "house": "Dock 4"
+            }
+          },
+          "ShippingAddressRecipient": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing - Dayton Plant",
+            "content": "Brightline Manufacturing - Dayton Plant",
+            "confidence": 0.891
+          },
+          "SubTotal": {
+            "type": "currency",
+            "valueCurrency": {
+              "amount": 5760,
+              "currencyCode": "USD"
+            },
+            "content": "5,760.00",
+            "confidence": 0.95
+          },
+          "VendorAddress": {
+            "type": "address",
+            "content": "1200 Industrial Parkway\nDayton, OH 45402\nUSA",
+            "confidence": 0.885,
+            "valueAddress": {
+              "houseNumber": "1200",
+              "road": "Industrial Parkway",
+              "postalCode": "45402",
+              "city": "Dayton",
+              "state": "OH",
+              "countryRegion": "USA",
+              "streetAddress": "1200 Industrial Parkway"
+            }
+          },
+          "VendorAddressRecipient": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing",
+            "content": "Brightline Manufacturing",
+            "confidence": 0.587
+          },
+          "VendorName": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing",
+            "content": "Brightline Manufacturing",
+            "confidence": 0.361
+          },
+          "VendorPhoneNumber": {
+            "type": "phoneNumber",
+            "valuePhoneNumber": "+15550101",
+            "content": "+1 555 0101",
+            "confidence": 0.892
+          }
+        }
+      }
+    ],
+    "tables": [
+      {
+        "rowCount": 5,
+        "columnCount": 2,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "PO Number:"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "45188"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "PO Date:"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 1,
+            "content": "2026-10-29"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "Customer No .:"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 1,
+            "content": "CUST-1001"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 0,
+            "content": "Delivery Date:"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 1,
+            "content": "2026-11-07"
+          },
+          {
+            "rowIndex": 4,
+            "columnIndex": 0,
+            "content": "Payment Terms:"
+          },
+          {
+            "rowIndex": 4,
+            "columnIndex": 1,
+            "content": "Net 30"
+          }
+        ]
+      },
+      {
+        "rowCount": 4,
+        "columnCount": 6,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "Line",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "Item Code",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 2,
+            "content": "Description",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 3,
+            "content": "Qty",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 4,
+            "content": "Unit Price",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 5,
+            "content": "Amount",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "1"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 1,
+            "content": "WID-1001"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 2,
+            "content": "Industrial Widget 10mm"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 3,
+            "content": "200"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 4,
+            "content": "12.50"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 5,
+            "content": "2,500.00"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "2"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 1,
+            "content": "BRG6204"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 2,
+            "content": "Ball bearing 6204 sealed"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 3,
+            "content": "500"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 4,
+            "content": "4.20"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 5,
+            "content": "2,100.00"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 0,
+            "content": "3"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 1,
+            "content": "VLV-5001"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 2,
+            "content": "Ball valve 1/2 in brass"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 3,
+            "content": "40"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 4,
+            "content": "29.00"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 5,
+            "content": "1,160.00"
+          }
+        ]
+      },
+      {
+        "rowCount": 3,
+        "columnCount": 2,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "Subtotal",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "5,760.00",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "Tax Exempt (resale)"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "Total (USD)\n5,760.00"
+          }
+        ]
+      }
+    ]
+  }
+}

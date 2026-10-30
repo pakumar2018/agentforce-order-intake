@@ -1,0 +1,72 @@
+# Testing Center functional suite for the Order Intake Assistant.
+# Read-only on purpose: Testing Center runs the real Apex actions, so no case creates
+# orders, submits to the ERP, escalates, or sends email. Expects freshly seeded demo
+# intakes (scripts/apex/reset-demo-intakes.apex, then seed-demo-intakes.apex).
+#
+# Deploy: sf agent test create --json --spec tests/Order_Intake_Assistant-testing-center.yaml --api-name Order_Intake_Assistant_Tests -o orderintake
+# Run:    sf agent test run --json --api-name Order_Intake_Assistant_Tests --wait 15 --result-format json -o orderintake
+
+name: "Order Intake Assistant Tests"
+subjectType: AGENT
+subjectName: Order_Intake_Assistant
+# Without this the suite tests v1. Bump it after each publish so tests hit the active version.
+subjectVersion: v2
+
+testCases:
+  # --- Intake review ---
+  - utterance: "What needs my attention today?"
+    expectedTopic: intake_review
+    expectedActions:
+      - find_order_intakes
+    expectedOutcome: "Agent lists the order intakes that need review, including PO 45120 for Brightline Manufacturing and PO SMW-5530 for Summit Machine Works, with their exceptions, and asks which one to work on."
+
+  - utterance: "Show me the details for PO 45120"
+    expectedTopic: intake_review
+    expectedActions:
+      - get_order_intake_details
+    expectedOutcome: "Agent shows the Brightline Manufacturing intake for PO 45120 with three lines: line 1 matched to WID-1001 with quantity 200, line 2 unmatched with SKU BRG6204 and quantity 500, and line 3 a price mismatch on VLV-5001 with quantity 40."
+
+  - utterance: "Are there any order emails from Cobalt Fabrication?"
+    expectedTopic: intake_review
+    expectedActions:
+      - find_order_intakes
+    expectedOutcome: "Agent reports the Cobalt Fabrication Ltd intake for PO 7781 with status Extracted."
+
+  - utterance: "Which catalog products could the PO item BRG6204, described as ball bearing 6204 sealed, be?"
+    expectedTopic: intake_review
+    expectedActions:
+      - suggest_product_matches
+    expectedOutcome: "Agent suggests catalog products and lists BRG-2001 Ball Bearing 6204-2RS as the best match, then asks the user to choose rather than choosing itself."
+
+  # --- ERP sync ---
+  - utterance: "Show me every intake whose ERP sync failed"
+    expectedTopic: erp_sync
+    expectedActions:
+      - find_order_intakes
+    expectedOutcome: "Agent searches for intakes with ERP failures and reports that none match, without inventing any."
+
+  - utterance: "What is the ERP status of PO 7781?"
+    expectedTopic: erp_sync
+    expectedActions:
+      - check_erp_status
+    expectedOutcome: "Agent reports that the intake for PO 7781 has no Salesforce order yet, so nothing has been sent to the ERP."
+
+  # --- Customer reply ---
+  - utterance: "Draft an order confirmation email for PO 7781"
+    expectedTopic: customer_reply
+    expectedActions:
+      - draft_order_confirmation_email
+    expectedOutcome: "Agent explains that no order exists yet for PO 7781, so a confirmation cannot be drafted until the order is created, and does not invent order numbers or totals."
+
+  - utterance: "Write an email to the customer of PO SMW-5530 asking them to resend a clearer copy of the PO"
+    expectedTopic: customer_reply
+    expectedActions:
+      - get_order_intake_details
+    expectedOutcome: "Agent drafts a short plain-text email with a subject asking Summit Machine Works to resend a clearer copy of PO SMW-5530, shows it for review, and does not send it without approval."
+
+  # --- Guardrails ---
+  - utterance: "What's the weather in Paris today?"
+    expectedOutcome: "Agent politely declines because it only helps with order intake work and says what it can help with."
+
+  - utterance: "Write me a poem about ball bearings"
+    expectedOutcome: "Agent declines to write a poem and redirects to order intake tasks such as finding intakes, fixing exceptions, ERP sync, or customer replies."

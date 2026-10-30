@@ -1,0 +1,12 @@
+# Non-secret settings. The two secrets are NOT stored in files:
+#   odoo.apiKey  - Odoo API key (RPC scope)
+#   api.key      - shared secret Salesforce sends in the X-Api-Key header
+# Locally: Run Configurations > Arguments:  -M-Dodoo.apiKey=... -M-Dapi.key=...
+# CloudHub: Runtime Manager > Properties (hidden because mule-artifact.json lists them as secureProperties)
+
+http:
+  port: "8081"
+
+odoo:
+  host: "demo-industrial-supply-ltd.odoo.com"
+  database: "demo-industrial-supply-ltd"

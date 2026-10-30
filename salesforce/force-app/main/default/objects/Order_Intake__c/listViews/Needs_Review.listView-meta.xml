@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Needs_Review</fullName>
+    <columns>NAME</columns>
+    <columns>Account__c</columns>
+    <columns>Customer_PO_Number__c</columns>
+    <columns>Exception_Reason__c</columns>
+    <columns>Status__c</columns>
+    <columns>Received_At__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Status__c</field>
+        <operation>equals</operation>
+        <value>Needs Review,ERP Failed,Error</value>
+    </filters>
+    <label>Needs Review</label>
+</ListView>

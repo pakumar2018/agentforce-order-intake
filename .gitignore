@@ -1,0 +1,10 @@
+target/
+.mule/
+.sfdx/
+.sf/
+node_modules/
+*.jar
+.DS_Store
+.settings/
+.project
+.classpath

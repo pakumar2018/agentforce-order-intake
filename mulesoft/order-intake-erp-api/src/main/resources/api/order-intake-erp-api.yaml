@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: Order Intake ERP API
+  version: 1.0.0
+  description: >
+    System API used by the Agentforce Order Intake Assistant (through the Salesforce named
+    credential Order_Intake_Mule) to send approved orders to the ERP (Odoo) and check their status.
+servers:
+  - url: https://{app}.cloudhub.io/api
+    variables:
+      app:
+        default: order-intake-erp-api
+security:
+  - apiKey: []
+paths:
+  /orders/{orderId}/erp-submit:
+    post:
+      summary: Create and confirm the sales order in the ERP
+      description: >
+        Idempotent per Salesforce order: if the order was already created in the ERP, the existing
+        ERP order is returned. Business rejections (credit limit, unknown customer or product) return
+        200 with status Failed so the agent can explain them.
+      parameters:
+        - $ref: '#/components/parameters/orderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitRequest'
+            example:
+              intakeNumber: OI-00011
+              orderId: 801ak00000XXXXXAAA
+              orderNumber: '00000100'
+              poNumber: '45120'
+              accountNumber: CUST-1001
+              total: 5760
+              lines:
+                - { sku: WID-1001, name: Industrial Widget 10mm, quantity: 200, unitPrice: 12.5 }
+                - { sku: BRG-2001, name: Ball Bearing 6204-2RS, quantity: 500, unitPrice: 4.2 }
+                - { sku: VLV-5001, name: Ball Valve 1/2 inch Brass, quantity: 40, unitPrice: 29 }
+      responses:
+        '200':
+          description: ERP result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErpResult'
+              examples:
+                confirmed:
+                  value: { status: Confirmed, erpOrderNumber: S00001, error: null }
+                creditLimit:
+                  value:
+                    status: Failed
+                    erpOrderNumber: null
+                    error: 'Credit limit exceeded: order total 35,920.00 plus open balance 0.00 is above the customer credit limit of 25,000.00 in Odoo. Credit team approval required.'
+        '401':
+          description: Missing or invalid X-Api-Key
+  /orders/{orderId}/erp-status:
+    get:
+      summary: Status of the ERP sales order for a Salesforce order
+      parameters:
+        - $ref: '#/components/parameters/orderId'
+      responses:
+        '200':
+          description: ERP status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErpResult'
+        '401':
+          description: Missing or invalid X-Api-Key
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  parameters:
+    orderId:
+      name: orderId
+      in: path
+      required: true
+      description: Salesforce Order Id
+      schema: { type: string }
+  schemas:
+    SubmitRequest:
+      type: object
+      required: [orderId, accountNumber, lines]
+      properties:
+        intakeNumber: { type: string }
+        orderId: { type: string }
+        orderNumber: { type: string }
+        poNumber: { type: string }
+        accountNumber: { type: string, description: Salesforce account number, matched to the Odoo customer Reference }
+        total: { type: number }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity, unitPrice]
+            properties:
+              sku: { type: string, description: Matched to the Odoo product Internal Reference }
+              name: { type: string }
+              quantity: { type: number }
+              unitPrice: { type: number }
+    ErpResult:
+      type: object
+      properties:
+        status: { type: string, enum: [Confirmed, Failed] }
+        erpOrderNumber: { type: string, nullable: true }
+        error: { type: string, nullable: true }

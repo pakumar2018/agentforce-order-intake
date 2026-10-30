@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Order_Intake__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The order email this review case was opened for.</description>
+    <label>Order Intake</label>
+    <referenceTo>Order_Intake__c</referenceTo>
+    <relationshipLabel>Review Cases</relationshipLabel>
+    <relationshipName>Review_Cases</relationshipName>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,28 @@
+{
+  "required" : [ "intakeReference", "team", "reason" ],
+  "unevaluatedProperties" : false,
+  "properties" : {
+    "intakeReference" : {
+      "title" : "Intake Reference",
+      "description" : "Intake number or customer PO number",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "reason" : {
+      "title" : "Reason",
+      "description" : "Why the intake needs that team, with the relevant details",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    },
+    "team" : {
+      "title" : "Team",
+      "description" : "Credit, Pricing, Customer Master Data, or Order Desk Supervisor",
+      "lightning:type" : "lightning__textType",
+      "lightning:isPII" : false,
+      "copilotAction:isUserInput" : false
+    }
+  },
+  "lightning:type" : "lightning__objectType"
+}

@@ -1,0 +1,13 @@
+Internal Reference,Name,Sales Price,Can be Sold
+WID-1001,Industrial Widget 10mm,12.50,True
+WID-1002,Industrial Widget 20mm,18.75,True
+BRG-2001,Ball Bearing 6204-2RS,4.20,True
+BRG-2002,Ball Bearing 6205-2RS,5.10,True
+BLT-3001,Hex Bolt M8x40 (box of 100),22.00,True
+BLT-3002,Hex Bolt M10x50 (box of 100),29.50,True
+NUT-3101,Hex Nut M8 (box of 100),9.80,True
+GSK-4001,Rubber Gasket 50mm,1.35,True
+VLV-5001,Ball Valve 1/2 inch Brass,34.90,True
+VLV-5002,Ball Valve 1 inch Brass,58.00,True
+PMP-6001,Centrifugal Pump 0.5 HP,449.00,True
+FLT-7001,Hydraulic Filter Cartridge,27.40,True

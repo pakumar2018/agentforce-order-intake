@@ -1,0 +1,111 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 3184 >>
+stream
+0 g 0 G
+BT /F2 16 Tf 40 742 Td (Cobalt Fabrication Ltd) Tj ET
+BT /F1 9 Tf 40 726 Td (55 Steelworks Avenue) Tj ET
+BT /F1 9 Tf 40 714 Td (Hamilton, ON L8L 4K7) Tj ET
+BT /F1 9 Tf 40 702 Td (Canada) Tj ET
+BT /F1 9 Tf 40 690 Td (Phone +1 555 0102) Tj ET
+BT /F2 16 Tf 400 742 Td (PURCHASE ORDER) Tj ET
+BT /F2 9 Tf 400 722 Td (PO Number:) Tj ET
+BT /F1 9 Tf 480 722 Td (7795) Tj ET
+BT /F2 9 Tf 400 709 Td (PO Date:) Tj ET
+BT /F1 9 Tf 480 709 Td (2026-10-29) Tj ET
+BT /F2 9 Tf 400 696 Td (Customer No.:) Tj ET
+BT /F1 9 Tf 480 696 Td (CUST-1002) Tj ET
+BT /F2 9 Tf 400 683 Td (Delivery Date:) Tj ET
+BT /F1 9 Tf 480 683 Td (2026-11-05) Tj ET
+BT /F2 9 Tf 400 670 Td (Payment Terms:) Tj ET
+BT /F1 9 Tf 480 670 Td (Net 30) Tj ET
+1 w 40 652 m 572 652 l S
+BT /F2 10 Tf 40 634 Td (Supplier) Tj ET
+BT /F1 9 Tf 40 620 Td (Demo Industrial Supply Ltd) Tj ET
+BT /F1 9 Tf 40 608 Td (400 Foundry Road) Tj ET
+BT /F1 9 Tf 40 596 Td (Riverton, ON  K0A 1B0) Tj ET
+BT /F1 9 Tf 40 584 Td (orders: demo.orders.po@gmail.com) Tj ET
+BT /F2 10 Tf 320 634 Td (Ship To) Tj ET
+BT /F1 9 Tf 320 620 Td (Cobalt Fabrication Ltd) Tj ET
+BT /F1 9 Tf 320 608 Td (Receiving, 55 Steelworks Avenue) Tj ET
+BT /F1 9 Tf 320 596 Td (Hamilton, ON L8L 4K7) Tj ET
+BT /F2 9 Tf 40 562 Td (Buyer contact:) Tj ET
+BT /F1 9 Tf 115 562 Td (Daniel Okafor, Buyer  |  demo.dealer.po+cobalt@gmail.com) Tj ET
+0.88 g 40 525 532 18 re f 0 g
+BT /F2 9 Tf 44 530 Td (Line) Tj ET
+BT /F2 9 Tf 76 530 Td (Item Code) Tj ET
+BT /F2 9 Tf 176 530 Td (Description) Tj ET
+BT /F2 9 Tf 403.50 530 Td (Qty) Tj ET
+BT /F2 9 Tf 443.01 530 Td (Unit Price) Tj ET
+BT /F2 9 Tf 535.01 530 Td (Amount) Tj ET
+BT /F1 9 Tf 44 508 Td (1) Tj ET
+BT /F1 9 Tf 76 508 Td (BLT-3001) Tj ET
+BT /F1 9 Tf 176 508 Td (Hex Bolt M8x40 \(box of 100\)) Tj ET
+BT /F1 9 Tf 409.99 508 Td (30) Tj ET
+BT /F1 9 Tf 472.48 508 Td (22.00) Tj ET
+BT /F1 9 Tf 540.48 508 Td (660.00) Tj ET
+0.3 w 40 501 m 572 501 l S
+BT /F1 9 Tf 44 486 Td (2) Tj ET
+BT /F1 9 Tf 76 486 Td (NUT-3101) Tj ET
+BT /F1 9 Tf 176 486 Td (Hex Nut M8 \(box of 100\)) Tj ET
+BT /F1 9 Tf 409.99 486 Td (30) Tj ET
+BT /F1 9 Tf 477.49 486 Td (9.80) Tj ET
+BT /F1 9 Tf 540.48 486 Td (294.00) Tj ET
+0.3 w 40 479 m 572 479 l S
+BT /F1 9 Tf 44 464 Td (3) Tj ET
+BT /F1 9 Tf 76 464 Td (GSK-4001) Tj ET
+BT /F1 9 Tf 176 464 Td (Rubber Gasket 50mm) Tj ET
+BT /F1 9 Tf 404.99 464 Td (200) Tj ET
+BT /F1 9 Tf 477.49 464 Td (1.35) Tj ET
+BT /F1 9 Tf 540.48 464 Td (270.00) Tj ET
+0.3 w 40 457 m 572 457 l S
+BT /F2 9 Tf 451.01 436 Td (Subtotal) Tj ET
+BT /F1 9 Tf 532.97 436 Td (1,224.00) Tj ET
+BT /F2 9 Tf 478.50 422 Td (Tax) Tj ET
+BT /F1 9 Tf 495.44 422 Td (Exempt \(resale\)) Tj ET
+1 w 400 416 m 572 416 l S
+BT /F2 10 Tf 431.12 406 Td (Total \(USD\)) Tj ET
+BT /F2 10 Tf 529.08 406 Td (1,224.00) Tj ET
+BT /F2 10 Tf 40 366 Td (Notes) Tj ET
+BT /F1 9 Tf 40 352 Td (Standard delivery. Reference PO number on all packing slips.) Tj ET
+BT /F1 9 Tf 40 338 Td (Please send the order confirmation to the buyer email above.) Tj ET
+0.7 w 40 120 m 230 120 l S
+BT /F1 9 Tf 40 106 Td (Authorized by: Daniel Okafor) Tj ET
+BT /F1 9 Tf 40 94 Td (Cobalt Fabrication Ltd) Tj ET
+BT /F1 7 Tf 40 50 Td (DEMO DOCUMENT - fictional company and data for the OSF Agentforce hackathon.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Title (Purchase Order 7795 - Cobalt Fabrication Ltd) /Producer (Order Intake demo generator) /CreationDate (D:20261029000000Z) >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000000354 00000 n 
+0000000456 00000 n 
+0000003692 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R /Info 7 0 R >>
+startxref
+3841
+%%EOF

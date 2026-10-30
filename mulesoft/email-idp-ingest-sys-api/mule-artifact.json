@@ -1,0 +1,12 @@
+{
+  "minMuleVersion": "4.11.0",
+  "javaSpecificationVersions": [
+    "17"
+  ],
+  "secureProperties": [
+    "email.password",
+    "sf.clientId",
+    "sf.clientSecret",
+    "ocr.apiKey"
+  ]
+}

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Order email ingest for the Agentforce Order Intake Assistant.
+    Gmail "Orders" label -> Order_Intake__c in Salesforce (PDF attached)
+      -> Agentforce prompt template classifies the email
+      -> purchase orders: Azure AI Document Intelligence reads the PDF, or, when there is no PDF, the
+         Extract_Order_From_Email prompt template reads the email body
+      -> Salesforce builds lines, matches customer/products and sets exceptions (Apex REST /orderintake/v1/extraction);
+         a clean PO becomes an order straight away, anything else gets a review Case
+      -> order created: confirmation reply to the customer (Gmail SMTP, same thread)
+      -> email moved to Processed / Needs-Review / Not-Order
+  Salesforce and Azure calls are in salesforce-api.xml and azure-docintel.xml.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:email="http://www.mulesoft.org/schema/mule/email"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
+
+    <global-property name="mule.env" value="dev" doc:name="Default environment"/>
+    <configuration-properties file="mule-app-${mule.env}.properties" doc:name="Environment properties"/>
+
+    <email:imap-config name="Gmail_IMAP" doc:name="Gmail IMAP">
+        <email:imaps-connection host="${email.host}" port="${email.port}" user="${email.username}" password="${email.password}">
+            <!-- Trust store without a path: Gmail's certificate is validated against the JVM's default CAs -->
+            <tls:context enabledProtocols="TLSv1.2,TLSv1.3">
+                <tls:trust-store insecure="false"/>
+            </tls:context>
+        </email:imaps-connection>
+    </email:imap-config>
+
+    <email:smtp-config name="Gmail_SMTP" doc:name="Gmail SMTP">
+        <email:smtps-connection host="${email.smtp.host}" port="${email.smtp.port}" user="${email.username}" password="${email.password}">
+            <tls:context enabledProtocols="TLSv1.2,TLSv1.3">
+                <tls:trust-store insecure="false"/>
+            </tls:context>
+        </email:smtps-connection>
+    </email:smtp-config>
+
+    <!-- ============ Poll the Gmail "Orders" label ============ -->
+    <flow name="order-email-listener" maxConcurrency="1" doc:name="Order Email Listener">
+        <email:listener-imap config-ref="Gmail_IMAP" folder="${email.folder}" doc:name="On new order email">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${email.pollSeconds}" timeUnit="SECONDS"/>
+            </scheduling-strategy>
+            <email:imap-matcher seen="EXCLUDE"/>
+        </email:listener-imap>
+
+        <set-variable variableName="emailId" value="#[output application/java --- attributes.id]" doc:name="IMAP email id"/>
+        <ee:transform doc:name="Email metadata and PDF attachments">
+            <ee:variables>
+                <ee:set-variable variableName="email"><![CDATA[%dw 2.0
+import SHA1 from dw::Crypto
+output application/java
+var headers = attributes.headers default {}
+var messageIds = (headers filterObject ((value, key) -> lower(key as String) == "message-id")) pluck $
+var messageId = if (isEmpty(messageIds)) ("imap-" ++ (attributes.id as String)) else (messageIds[0] as String)
+// Gmail sends HTML bodies; keep readable text for the classifier and the record
+var bodyText = trim((((payload.body default "") as String default "") replace /<[^>]+>/ with " " replace /&nbsp;/ with " " replace /\s+/ with " "))
+// The classifier cannot open attachments, so it gets their names (e.g. "PO-7795-Cobalt-clean.pdf")
+var attachmentNames = (payload.attachments default {}) pluck ((content, name) -> name as String)
+var bodyWithAttachments = bodyText ++ (if (isEmpty(attachmentNames)) "" else "\n\n[Attachments: " ++ (attachmentNames joinBy ", ") ++ "]")
+// Gmail gives "Display Name <address>"; Salesforce Email fields and contact matching need the bare address
+var fromRaw = (attributes.fromAddresses[0] default "") as String
+var fromAddress = if (fromRaw contains "<") ((fromRaw match /.*<([^>]+)>.*/)[1] default fromRaw) else fromRaw
+---
+{
+    // SHA-1 of the Message-ID: same email, same key (duplicate protection), and URL-safe for the
+    // Salesforce upsert path. A raw Message-ID ends in ".com", which Salesforce reads as a format suffix.
+    messageKey: "gm-" ++ SHA1(messageId as Binary),
+    // Original Message-ID, so the confirmation reply lands in the same Gmail thread
+    messageId: messageId,
+    from: lower(trim(fromAddress)),
+    subject: attributes.subject default "",
+    // Email connector gives a LocalDateTime; the runtime (CloudHub) runs in UTC
+    receivedIso: if (attributes.receivedDate == null) (now() as String {format: "yyyy-MM-dd'T'HH:mm:ssXXX"})
+                 else ((attributes.receivedDate as LocalDateTime) as String {format: "yyyy-MM-dd'T'HH:mm:ss"}) ++ "Z",
+    body: if (sizeOf(bodyWithAttachments) > 32000) bodyWithAttachments[0 to 31999] else bodyWithAttachments
+}]]></ee:set-variable>
+                <ee:set-variable variableName="pdfs"><![CDATA[%dw 2.0
+output application/java
+---
+((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content }))
+    filter ((attachment) -> lower(attachment.name) endsWith ".pdf")]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="#[output application/java --- 'Order email from ' ++ vars.email.from ++ ': ' ++ vars.email.subject ++ ' (' ++ sizeOf(vars.pdfs) ++ ' PDF)']" doc:name="Log email"/>
+
+        <flow-ref name="salesforce-token" doc:name="Salesforce token"/>
+        <flow-ref name="salesforce-upsert-intake" doc:name="Upsert Order Intake"/>
+
+        <choice doc:name="New email?">
+            <when expression="#[output application/java --- not vars.intakeCreated]">
+                <logger level="WARN" message="#[output application/java --- 'Email ' ++ vars.email.messageKey ++ ' already has intake ' ++ vars.intakeId ++ ', skipping']" doc:name="Log duplicate"/>
+            </when>
+            <otherwise>
+                <flow-ref name="process-new-intake" doc:name="Process new intake"/>
+                <email:move-to-folder config-ref="Gmail_IMAP" sourceFolder="${email.folder}" targetFolder="#[vars.targetFolder]" emailId="#[vars.emailId]" doc:name="Re-label email"/>
+            </otherwise>
+        </choice>
+
+        <error-handler>
+            <on-error-continue type="ANY">
+                <logger level="ERROR" message="#[output application/java --- 'Order email failed (' ++ ((vars.email.messageKey) default 'unknown') ++ '): ' ++ (error.description default '')]" doc:name="Log error"/>
+                <choice doc:name="Intake exists?">
+                    <when expression="#[output application/java --- vars.intakeId != null and vars.sfAuth != null]">
+                        <flow-ref name="salesforce-mark-intake-error" doc:name="Mark intake Error"/>
+                    </when>
+                </choice>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <!-- ============ Attach PDFs, classify, extract ============ -->
+    <sub-flow name="process-new-intake">
+        <foreach collection="#[vars.pdfs]" doc:name="For each PDF">
+            <flow-ref name="salesforce-attach-pdf" doc:name="Attach PDF to intake"/>
+        </foreach>
+
+        <flow-ref name="salesforce-classify-intake" doc:name="Classify with Agentforce"/>
+
+        <choice doc:name="Route by classification">
+            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and not isEmpty(vars.pdfs)]">
+                <set-variable variableName="pdf" value="#[output application/java --- vars.pdfs[0]]" doc:name="PO PDF"/>
+                <set-variable variableName="extractionSource" value="PDF" doc:name="Source PDF"/>
+                <flow-ref name="extract-po-with-azure" doc:name="Extract PO with Azure Document Intelligence"/>
+                <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
+            </when>
+            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order']">
+                <!-- No PDF: the order details are in the email body, so Azure is skipped -->
+                <set-variable variableName="extractionSource" value="email body" doc:name="Source email body"/>
+                <flow-ref name="salesforce-extract-from-body" doc:name="Extract PO from email body with Agentforce"/>
+                <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
+            </when>
+            <otherwise>
+                <flow-ref name="salesforce-mark-not-order" doc:name="Mark Not Order"/>
+                <set-variable variableName="targetFolder" value="${email.folder.notOrder}" doc:name="Not-Order folder"/>
+            </otherwise>
+        </choice>
+        <logger level="INFO" message="#[output application/java --- 'Intake ' ++ vars.intakeId ++ ' classified ' ++ (vars.classification.category default '?') ++ ', email moved to ' ++ vars.targetFolder]" doc:name="Log result"/>
+    </sub-flow>
+
+    <!-- ============ Salesforce decides: order created, or review case ============ -->
+    <sub-flow name="complete-purchase-order">
+        <flow-ref name="salesforce-submit-extraction" doc:name="Send extraction to Salesforce"/>
+        <set-variable variableName="targetFolder" doc:name="Folder by result"
+                      value="#[output application/java --- if (['Extracted', 'Order Created'] contains vars.extractionResult.status) p('email.folder.processed') else p('email.folder.review')]"/>
+        <choice doc:name="Order created?">
+            <when expression="#[output application/java --- vars.extractionResult.orderNumber != null and vars.extractionResult.replyBody != null]">
+                <flow-ref name="reply-order-created" doc:name="Reply to customer"/>
+            </when>
+        </choice>
+    </sub-flow>
+
+    <!-- Confirmation reply in the customer's thread. The order exists already, so a failed reply is only logged. -->
+    <sub-flow name="reply-order-created">
+        <try doc:name="Send reply">
+            <email:send config-ref="Gmail_SMTP" fromAddress="${email.username}" doc:name="Order created reply"
+                        subject="#[output application/java --- if (isEmpty(vars.email.subject)) vars.extractionResult.replySubject else if (lower(vars.email.subject) startsWith 're:') vars.email.subject else 'Re: ' ++ vars.email.subject]">
+                <email:to-addresses>
+                    <email:to-address value="#[vars.email.from]"/>
+                </email:to-addresses>
+                <email:headers><![CDATA[#[output application/java
+---
+if ((vars.email.messageId default '') startsWith '<') { 'In-Reply-To': vars.email.messageId, 'References': vars.email.messageId } else {}]]]></email:headers>
+                <email:body contentType="text/plain">
+                    <email:content><![CDATA[#[vars.extractionResult.replyBody]]]></email:content>
+                </email:body>
+            </email:send>
+            <logger level="INFO" message="#[output application/java --- 'Order ' ++ vars.extractionResult.orderNumber ++ ' confirmation sent to ' ++ vars.email.from]" doc:name="Log reply"/>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="WARN" message="#[output application/java --- 'Order ' ++ vars.extractionResult.orderNumber ++ ' created, but the reply to ' ++ vars.email.from ++ ' failed: ' ++ (error.description default '')]" doc:name="Log reply failure"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+</mule>

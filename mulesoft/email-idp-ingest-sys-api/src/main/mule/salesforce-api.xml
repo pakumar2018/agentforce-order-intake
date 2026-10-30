@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Salesforce REST calls, authenticated with the OAuth 2.0 client credentials flow of an
+  External Client App (run-as user needs the Order Intake Integration permission set).
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <http:request-config name="Salesforce_HTTP" doc:name="Salesforce REST">
+        <http:request-connection protocol="HTTPS" host="${sf.host}" port="443"/>
+    </http:request-config>
+
+    <sub-flow name="salesforce-token">
+        <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/oauth2/token" doc:name="Client credentials token">
+            <http:body><![CDATA[#[output application/x-www-form-urlencoded
+---
+{
+    grant_type: "client_credentials",
+    client_id: p('sf.clientId'),
+    client_secret: p('sf.clientSecret')
+}]]]></http:body>
+        </http:request>
+        <set-variable variableName="sfAuth" value="#[output application/java --- 'Bearer ' ++ payload.access_token]" doc:name="Authorization header"/>
+    </sub-flow>
+
+    <!-- Upsert on Gmail_Message_Id__c so the same email never creates two intakes -->
+    <sub-flow name="salesforce-upsert-intake">
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" doc:name="Upsert Order_Intake__c"
+                      path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/Gmail_Message_Id__c/{messageKey}">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    Source_Email_From__c: vars.email.from,
+    Subject__c: (vars.email.subject default "")[0 to 254] default (vars.email.subject default ""),
+    Received_At__c: vars.email.receivedIso,
+    Email_Body__c: vars.email.body
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+            <http:uri-params><![CDATA[#[{ messageKey: vars.email.messageKey }]]]></http:uri-params>
+        </http:request>
+        <set-variable variableName="intakeId" value="#[output application/java --- payload.id]" doc:name="intakeId"/>
+        <set-variable variableName="intakeCreated" value="#[output application/java --- (payload.created default (attributes.statusCode == 201)) as Boolean]" doc:name="Created?"/>
+    </sub-flow>
+
+    <sub-flow name="salesforce-attach-pdf">
+        <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/ContentVersion" doc:name="Create ContentVersion">
+            <http:body><![CDATA[#[%dw 2.0
+import toBase64 from dw::core::Binaries
+output application/json
+---
+{
+    Title: payload.name,
+    PathOnClient: payload.name,
+    VersionData: toBase64(payload.content as Binary),
+    FirstPublishLocationId: vars.intakeId
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+    </sub-flow>
+
+    <!-- Agentforce: Classify_Order_Email prompt template -->
+    <sub-flow name="salesforce-classify-intake">
+        <http:request method="POST" config-ref="Salesforce_HTTP" doc:name="Prompt template generation"
+                      path="/services/data/${sf.apiVersion}/einstein/prompt-templates/${sf.classifyTemplate}/generations">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    isPreview: false,
+    inputParams: { valueMap: { "Input:Order_Intake": { value: { id: vars.intakeId } } } },
+    additionalConfig: { numGenerations: 1, temperature: 0, applicationName: "PromptBuilderPreview" }
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+        <!-- The template returns one line of JSON; strip code fences in case the model adds them -->
+        <set-variable variableName="classification" doc:name="Parse classification"
+                      value="#[output application/java --- read(((payload.generations[0].text default '{}') replace /```(json)?/ with ''), 'application/json')]"/>
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Save classification">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    Classification__c: vars.classification.category default "Other",
+    Classification_Confidence__c: ((vars.classification.confidence default 0) as Number) * 100,
+    Classification_Reason__c: (vars.classification.reason default "")[0 to 254] default (vars.classification.reason default ""),
+    Status__c: "Classified"
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+            <http:uri-params><![CDATA[#[{ intakeId: vars.intakeId }]]]></http:uri-params>
+        </http:request>
+    </sub-flow>
+
+    <!-- Agentforce: Extract_Order_From_Email prompt template reads the PO from the email body (no PDF) -->
+    <sub-flow name="salesforce-extract-from-body">
+        <http:request method="POST" config-ref="Salesforce_HTTP" doc:name="Prompt template generation"
+                      path="/services/data/${sf.apiVersion}/einstein/prompt-templates/${sf.extractTemplate}/generations">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    isPreview: false,
+    inputParams: { valueMap: { "Input:Order_Intake": { value: { id: vars.intakeId } } } },
+    additionalConfig: { numGenerations: 1, temperature: 0, applicationName: "PromptBuilderPreview" }
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+        <flow-ref name="map-email-body-result" doc:name="Map to extraction"/>
+    </sub-flow>
+
+    <sub-flow name="map-email-body-result">
+        <ee:transform doc:name="Generation to extraction contract">
+            <ee:variables>
+                <ee:set-variable variableName="extraction" resource="dw/email-body-to-extraction.dwl"/>
+            </ee:variables>
+        </ee:transform>
+    </sub-flow>
+
+    <!-- Salesforce builds the lines and exceptions with the same rules the agent uses, and creates the
+         order for a clean PO when order.autoCreate is true -->
+    <sub-flow name="salesforce-submit-extraction">
+        <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/apexrest/orderintake/v1/extraction" doc:name="Apex REST extraction">
+            <http:body><![CDATA[#[output application/json
+---
+vars.extraction ++ { intakeId: vars.intakeId, source: vars.extractionSource, autoCreateOrder: p('order.autoCreate') == "true" }]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+        <set-variable variableName="extractionResult" value="#[output application/java --- payload]" doc:name="Extraction result"/>
+        <logger level="INFO" message="#[output application/java --- 'Intake ' ++ (payload.intakeNumber default vars.intakeId) ++ ' is ' ++ (payload.status default '?') ++ ' with ' ++ (payload.lineCount default 0) ++ ' lines; exceptions: ' ++ (payload.exceptions default 'none') ++ (if (payload.orderNumber != null) '; order ' ++ payload.orderNumber else '')]" doc:name="Log extraction result"/>
+    </sub-flow>
+
+    <sub-flow name="salesforce-mark-not-order">
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Status Not Order">
+            <http:body><![CDATA[#[output application/json --- { Status__c: "Not Order" }]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+            <http:uri-params><![CDATA[#[{ intakeId: vars.intakeId }]]]></http:uri-params>
+        </http:request>
+    </sub-flow>
+
+    <sub-flow name="salesforce-mark-intake-error">
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Status Error">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    Status__c: "Error",
+    Processing_Error__c: (error.description default "Unknown error")[0 to 254] default (error.description default "Unknown error")
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+            <http:uri-params><![CDATA[#[{ intakeId: vars.intakeId }]]]></http:uri-params>
+        </http:request>
+    </sub-flow>
+</mule>

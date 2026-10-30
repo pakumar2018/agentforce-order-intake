@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AiAgentDefinitionVersion xmlns="http://soap.sforce.com/2006/04/metadata">
+    <articleAnswersGPTEnabled>false</articleAnswersGPTEnabled>
+    <billingMode>ActionBased</billingMode>
+    <citationsEnabled>false</citationsEnabled>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The agent instructions</description>
+        <developerName>AgentScriptInternal_agent_instructions</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Agent Instructions</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description>The next topic to be visited</description>
+        <developerName>AgentScriptInternal_next_topic</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Next Topic</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <copilotPrimaryLanguage>en_US</copilotPrimaryLanguage>
+    <genAiPlannerName>Order_Intake_Assistant_v2</genAiPlannerName>
+    <isScriptCompatibleAgent>true</isScriptCompatibleAgent>
+    <knowledgeActionEnabled>false</knowledgeActionEnabled>
+    <knowledgeFallbackEnabled>false</knowledgeFallbackEnabled>
+    <planner>
+        <fullName>Order_Intake_Assistant_v2</fullName>
+        <agentGraphRef>20Zak00000AyN3J</agentGraphRef>
+        <description>Helps order desk reps work email purchase orders: find intakes, resolve extraction exceptions, create orders, sync with the ERP through MuleSoft, and reply to customers.</description>
+        <localTopicLinks>
+            <genAiPluginName>agent_router</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>customer_reply</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>erp_sync</genAiPluginName>
+        </localTopicLinks>
+        <localTopicLinks>
+            <genAiPluginName>intake_review</genAiPluginName>
+        </localTopicLinks>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Understand what the order desk rep wants and route to the right area</description>
+            <genAiPluginInstructions>
+                <description>You are the Order Intake Assistant for an order desk at a B2B industrial supplies distributor.
+Purchase orders arrive by email. MuleSoft reads them, Agentforce classifies them, MuleSoft IDP
+extracts the PO lines, and each email becomes an Order Intake record (numbers like OI-00012).
+You help order desk reps find intakes, resolve exceptions, create orders, sync orders to the
+ERP, and reply to customers.
+Use only data returned by your actions. Never invent intake numbers, products, prices,
+quantities, order numbers, or ERP results.
+Be concise and professional. Write action results as plain text, keeping intake numbers,
+product codes, quantities and amounts exactly as returned.
+Only help with order intake work. For anything else, say what you can help with instead.
+Only offer next steps your actions can perform. Do not offer reminders, notifications, or
+follow-ups you cannot carry out.
+Order creation, ERP submission and customer emails show the rep a built-in confirmation
+prompt when you call them. Do not ask for a separate confirmation of your own before calling
+them; call the action once the rep has asked for it.</description>
+                <developerName>instruction0_179ak000005P5ss</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179ak000005P5ss</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localDeveloperName>agent_router</localDeveloperName>
+            <masterLabel>Agent Router</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Draft and send emails to the customer who sent an order intake, such as order confirmations or requests for missing details</description>
+            <genAiPluginInstructions>
+                <description>You are the Order Intake Assistant for an order desk at a B2B industrial supplies distributor.
+Purchase orders arrive by email. MuleSoft reads them, Agentforce classifies them, MuleSoft IDP
+extracts the PO lines, and each email becomes an Order Intake record (numbers like OI-00012).
+You help order desk reps find intakes, resolve exceptions, create orders, sync orders to the
+ERP, and reply to customers.
+Use only data returned by your actions. Never invent intake numbers, products, prices,
+quantities, order numbers, or ERP results.
+Be concise and professional. Write action results as plain text, keeping intake numbers,
+product codes, quantities and amounts exactly as returned.
+Only help with order intake work. For anything else, say what you can help with instead.
+Only offer next steps your actions can perform. Do not offer reminders, notifications, or
+follow-ups you cannot carry out.
+Order creation, ERP submission and customer emails show the rep a built-in confirmation
+prompt when you call them. Do not ask for a separate confirmation of your own before calling
+them; call the action once the rep has asked for it.</description>
+                <developerName>instruction0_179ak000005P5st</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179ak000005P5st</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>send_intake_customer_email</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>get_order_intake_details</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>draft_order_confirmation_email</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Builds the order confirmation email for an intake that has an order, with the exact order lines, quantities, prices, total and ERP order number.</description>
+                <invocationTarget>DraftOrderConfirmationEmail</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>draft_order_confirmation_email</localDeveloperName>
+                <masterLabel>Draft Order Confirmation Email</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Returns full details of one order intake, including PO number, customer, sender, order, ERP status and every line.</description>
+                <invocationTarget>GetOrderIntakeDetails</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>get_order_intake_details</localDeveloperName>
+                <masterLabel>Get Order Intake Details</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Sends a rep-approved plain-text email to the sender of an order intake and logs it on the intake.</description>
+                <invocationTarget>SendIntakeCustomerEmail</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>true</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>send_intake_customer_email</localDeveloperName>
+                <masterLabel>Send Intake Customer Email</masterLabel>
+            </localActions>
+            <localDeveloperName>customer_reply</localDeveloperName>
+            <masterLabel>Customer Reply</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Send orders to the ERP through MuleSoft, check ERP status, explain ERP errors, and resubmit failed orders</description>
+            <genAiPluginInstructions>
+                <description>You are the Order Intake Assistant for an order desk at a B2B industrial supplies distributor.
+Purchase orders arrive by email. MuleSoft reads them, Agentforce classifies them, MuleSoft IDP
+extracts the PO lines, and each email becomes an Order Intake record (numbers like OI-00012).
+You help order desk reps find intakes, resolve exceptions, create orders, sync orders to the
+ERP, and reply to customers.
+Use only data returned by your actions. Never invent intake numbers, products, prices,
+quantities, order numbers, or ERP results.
+Be concise and professional. Write action results as plain text, keeping intake numbers,
+product codes, quantities and amounts exactly as returned.
+Only help with order intake work. For anything else, say what you can help with instead.
+Only offer next steps your actions can perform. Do not offer reminders, notifications, or
+follow-ups you cannot carry out.
+Order creation, ERP submission and customer emails show the rep a built-in confirmation
+prompt when you call them. Do not ask for a separate confirmation of your own before calling
+them; call the action once the rep has asked for it.</description>
+                <developerName>instruction0_179ak000005P5su</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179ak000005P5su</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>check_erp_status</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>escalate_order_intake</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>find_order_intakes</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>submit_order_to_erp</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Reports whether an intake&apos;s order reached the ERP: ERP order number when confirmed, or the ERP error when it failed.</description>
+                <invocationTarget>CheckErpStatus</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>check_erp_status</localDeveloperName>
+                <masterLabel>Check Erp Status</masterLabel>
+                <progressIndicatorMessage>Checking the ERP...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Escalates an intake to a human team (Credit, Pricing, Customer Master Data, or Order Desk Supervisor) with a high-priority task.</description>
+                <invocationTarget>EscalateOrderIntake</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>escalate_order_intake</localDeveloperName>
+                <masterLabel>Escalate Order Intake</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Searches order intakes by text and/or status, for example every intake with status ERP Failed. Returns up to 10 newest.</description>
+                <invocationTarget>FindOrderIntakes</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>find_order_intakes</localDeveloperName>
+                <masterLabel>Find Order Intakes</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Sends an intake&apos;s Salesforce order to the ERP through MuleSoft, or resends it after an ERP failure.</description>
+                <invocationTarget>SubmitOrderToErp</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>true</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>submit_order_to_erp</localDeveloperName>
+                <masterLabel>Submit Order To Erp</masterLabel>
+                <progressIndicatorMessage>Sending the order to the ERP...</progressIndicatorMessage>
+            </localActions>
+            <localDeveloperName>erp_sync</localDeveloperName>
+            <masterLabel>ERP Sync</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <localTopics>
+            <canEscalate>false</canEscalate>
+            <description>Find order intakes, resolve exceptions on extracted PO lines, create orders, and escalate intakes the rep cannot resolve</description>
+            <genAiPluginInstructions>
+                <description>You are the Order Intake Assistant for an order desk at a B2B industrial supplies distributor.
+Purchase orders arrive by email. MuleSoft reads them, Agentforce classifies them, MuleSoft IDP
+extracts the PO lines, and each email becomes an Order Intake record (numbers like OI-00012).
+You help order desk reps find intakes, resolve exceptions, create orders, sync orders to the
+ERP, and reply to customers.
+Use only data returned by your actions. Never invent intake numbers, products, prices,
+quantities, order numbers, or ERP results.
+Be concise and professional. Write action results as plain text, keeping intake numbers,
+product codes, quantities and amounts exactly as returned.
+Only help with order intake work. For anything else, say what you can help with instead.
+Only offer next steps your actions can perform. Do not offer reminders, notifications, or
+follow-ups you cannot carry out.
+Order creation, ERP submission and customer emails show the rep a built-in confirmation
+prompt when you call them. Do not ask for a separate confirmation of your own before calling
+them; call the action once the rep has asked for it.</description>
+                <developerName>instruction0_179ak000005P5sr</developerName>
+                <language>en_US</language>
+                <masterLabel>instruction0_179ak000005P5sr</masterLabel>
+                <sortOrder>1</sortOrder>
+            </genAiPluginInstructions>
+            <language>en_US</language>
+            <localActionLinks>
+                <functionName>update_order_intake_line</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>suggest_product_matches</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>create_order_from_intake</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>escalate_order_intake</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>find_order_intakes</functionName>
+            </localActionLinks>
+            <localActionLinks>
+                <functionName>get_order_intake_details</functionName>
+            </localActionLinks>
+            <localActions>
+                <description>Creates the Salesforce order for an intake whose customer is known and whose lines are all matched.</description>
+                <invocationTarget>CreateOrderFromIntake</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>true</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>create_order_from_intake</localDeveloperName>
+                <masterLabel>Create Order From Intake</masterLabel>
+                <progressIndicatorMessage>Creating the order...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Escalates an intake to a human team (Credit, Pricing, Customer Master Data, or Order Desk Supervisor) with a high-priority task.</description>
+                <invocationTarget>EscalateOrderIntake</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>escalate_order_intake</localDeveloperName>
+                <masterLabel>Escalate Order Intake</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Searches order intakes by intake number, PO number, customer, sender or subject, optionally filtered by status (&apos;open&apos; returns everything needing attention). Returns up to 10 newest.</description>
+                <invocationTarget>FindOrderIntakes</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>find_order_intakes</localDeveloperName>
+                <masterLabel>Find Order Intakes</masterLabel>
+                <progressIndicatorMessage>Searching order intakes...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Returns full details of one order intake: status, customer, sender, classification, exceptions, order, ERP status and every PO line with its product match and price check.</description>
+                <invocationTarget>GetOrderIntakeDetails</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+                <localDeveloperName>get_order_intake_details</localDeveloperName>
+                <masterLabel>Get Order Intake Details</masterLabel>
+                <progressIndicatorMessage>Loading the intake...</progressIndicatorMessage>
+            </localActions>
+            <localActions>
+                <description>Finds up to 3 catalog products closest to an unrecognised PO line, using its SKU and description.</description>
+                <invocationTarget>SuggestProductMatches</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>suggest_product_matches</localDeveloperName>
+                <masterLabel>Suggest Product Matches</masterLabel>
+            </localActions>
+            <localActions>
+                <description>Corrects one PO line on an intake: sets the matched product code, quantity, or price decision, then rechecks the line and the intake exceptions.</description>
+                <invocationTarget>UpdateOrderIntakeLine</invocationTarget>
+                <invocationTargetType>apex</invocationTargetType>
+                <isConfirmationRequired>false</isConfirmationRequired>
+                <isIncludeInProgressIndicator>false</isIncludeInProgressIndicator>
+                <localDeveloperName>update_order_intake_line</localDeveloperName>
+                <masterLabel>Update Order Intake Line</masterLabel>
+            </localActions>
+            <localDeveloperName>intake_review</localDeveloperName>
+            <masterLabel>Intake Review</masterLabel>
+            <pluginType>Topic</pluginType>
+        </localTopics>
+        <masterLabel>Order Intake Assistant</masterLabel>
+        <plannerType>Atlas__ConcurrentMultiAgentOrchestration</plannerType>
+    </planner>
+    <smallTalkEnabled>false</smallTalkEnabled>
+    <staticPromptsEnabled>false</staticPromptsEnabled>
+    <status>Inactive</status>
+    <stopRecPrompts>false</stopRecPrompts>
+    <surfacesEnabled>false</surfacesEnabled>
+    <toneType>Casual</toneType>
+    <version>2</version>
+    <welcomeMessage>Hi, I&apos;m the Order Intake Assistant. I can find order emails, fix exceptions on extracted POs, create orders, send them to the ERP, and draft replies to customers. What would you like to work on?</welcomeMessage>
+</AiAgentDefinitionVersion>

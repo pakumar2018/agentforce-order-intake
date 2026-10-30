@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Match_Status__c</fullName>
+    <label>Match Status</label>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value><fullName>Matched</fullName><default>false</default><label>Matched</label></value>
+            <value><fullName>Suggested</fullName><default>false</default><label>Suggested</label></value>
+            <value><fullName>Unmatched</fullName><default>true</default><label>Unmatched</label></value>
+            <value><fullName>Price Mismatch</fullName><default>false</default><label>Price Mismatch</label></value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

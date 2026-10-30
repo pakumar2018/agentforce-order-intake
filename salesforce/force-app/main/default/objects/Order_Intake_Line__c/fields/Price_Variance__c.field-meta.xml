@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Price_Variance__c</fullName>
+    <formula>IF(OR(ISBLANK(List_Price__c), List_Price__c = 0), NULL, (Unit_Price_On_PO__c - List_Price__c) / List_Price__c)</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Price Variance</label>
+    <precision>5</precision>
+    <scale>2</scale>
+    <type>Percent</type>
+</CustomField>

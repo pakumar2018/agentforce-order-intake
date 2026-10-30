@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="emailToIDP-test-suite.xml"/>
+
+    <munit:test name="maps-azure-invoice-result-for-po-45188" description="A real Azure prebuilt-invoice result for PO 45188 maps to the extraction contract">
+        <munit:behavior>
+            <munit:set-event>
+                <munit:payload value="#[output application/java --- readUrl('classpath://azure-invoice-po-45188.json', 'application/json')]"/>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="map-azure-result"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.poNumber]" is="#[MunitTools::equalTo('45188')]"/>
+            <munit-tools:assert-that expression="#[payload.customerNumber]" is="#[MunitTools::equalTo('CUST-1001')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload.lines)]" is="#[MunitTools::equalTo(3)]"/>
+            <munit-tools:assert-that expression="#[payload.lines[0].sku ++ '|' ++ payload.lines[1].sku ++ '|' ++ payload.lines[2].sku]" is="#[MunitTools::equalTo('WID-1001|BRG6204|VLV-5001')]"/>
+            <munit-tools:assert-that expression="#[payload.lines[0].quantity == 200 and payload.lines[1].quantity == 500 and payload.lines[2].quantity == 40]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.lines[0].unitPrice == 12.5 and payload.lines[2].unitPrice == 29]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence > 85 and payload.extractionConfidence &lt;= 100]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="reads-lines-from-table-when-items-are-merged" description="PO 7795: Azure merged all rows into one invoice item; lines come from the detected table">
+        <munit:behavior>
+            <munit:set-event>
+                <munit:payload value="#[output application/java --- readUrl('classpath://azure-invoice-po-7795-merged-items.json', 'application/json')]"/>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="map-azure-result"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.poNumber ++ '|' ++ payload.customerNumber]" is="#[MunitTools::equalTo('7795|CUST-1002')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload.lines)]" is="#[MunitTools::equalTo(3)]"/>
+            <munit-tools:assert-that expression="#[payload.lines map ((l) -> l.sku) joinBy '|']" is="#[MunitTools::equalTo('BLT-3001|NUT-3101|GSK-4001')]"/>
+            <munit-tools:assert-that expression="#[payload.lines[0].quantity == 30 and payload.lines[2].quantity == 200 and payload.lines[0].unitPrice == 22 and payload.lines[1].unitPrice == 9.8]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.lines[2].lineNo]" is="#[MunitTools::equalTo(3)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="falls-back-to-invoice-items-without-a-table" description="Without a line-item table, lines come from the invoice Items field">
+        <munit:behavior>
+            <munit:set-event>
+                <munit:payload value="#[output application/java --- do { var r = readUrl('classpath://azure-invoice-po-45188.json', 'application/json') --- r update { case t at .analyzeResult.tables -> [] } }]"/>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="map-azure-result"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.lines map ((l) -> l.sku) joinBy '|']" is="#[MunitTools::equalTo('WID-1001|BRG6204|VLV-5001')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="maps-email-body-order" description="An order written in the email body (prompt template answer, with code fences) maps to the extraction contract">
+        <munit:behavior>
+            <munit:set-event>
+                <munit:payload value="#[output application/java --- readUrl('classpath://email-body-generation-po-7801.json', 'application/json')]"/>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="map-email-body-result"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[vars.extraction.poNumber ++ '|' ++ vars.extraction.customerNumber]" is="#[MunitTools::equalTo('7801|CUST-1002')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.extraction.lines)]" is="#[MunitTools::equalTo(3)]"/>
+            <munit-tools:assert-that expression="#[vars.extraction.lines[1].quantity == 1200 and vars.extraction.lines[1].unitPrice == 9.8 and vars.extraction.lines[0].lineNo == 1]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.extraction.lines[2].sku == null and vars.extraction.lines[2].quantity == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.extraction.extractionConfidence]" is="#[MunitTools::equalTo(95)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="message-key-is-url-safe" description="Gmail Message-IDs become a stable, URL-safe SHA-1 key">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import SHA1 from dw::Crypto&#10;output application/java&#10;---&#10;'gm-' ++ SHA1('&lt;CAOdUkAHw+YL/CtQ=@mail.gmail.com&gt;' as Binary)]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload matches /gm-[0-9a-f]{40}/]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="sender-display-name-is-stripped" description="Display Name &lt;address&gt; becomes the bare address">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;output application/java&#10;var fromRaw = 'Maya Chen – Brightline Manufacturing &lt;Demo.Dealer.PO+brightline@gmail.com&gt;'&#10;var fromAddress = if (fromRaw contains '&lt;') ((fromRaw match /.*&lt;([^&gt;]+)&gt;.*/)[1] default fromRaw) else fromRaw&#10;---&#10;lower(trim(fromAddress))]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload]" is="#[MunitTools::equalTo('demo.dealer.po+brightline@gmail.com')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="classifier-sees-attachment-names" description="An HTML-only email body becomes plain text plus the attachment list">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;output application/java&#10;var bodyText = trim(('&lt;div dir=&quot;ltr&quot;&gt;&lt;br&gt;&lt;/div&gt;' replace /&lt;[^&gt;]+&gt;/ with ' ' replace /&amp;nbsp;/ with ' ' replace /\s+/ with ' '))&#10;var attachmentNames = ['PO-7795-Cobalt-clean.pdf']&#10;---&#10;bodyText ++ (if (isEmpty(attachmentNames)) '' else '\n\n[Attachments: ' ++ (attachmentNames joinBy ', ') ++ ']')]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[trim(payload)]" is="#[MunitTools::equalTo('[Attachments: PO-7795-Cobalt-clean.pdf]')]"/>
+        </munit:validation>
+    </munit:test>
+</mule>

@@ -1,0 +1,363 @@
+{
+  "status": "succeeded",
+  "analyzeResult": {
+    "apiVersion": "2024-11-30",
+    "modelId": "prebuilt-invoice",
+    "documents": [
+      {
+        "docType": "invoice",
+        "confidence": 1,
+        "fields": {
+          "CustomerId": {
+            "type": "string",
+            "valueString": "CUST-1002",
+            "content": "CUST-1002",
+            "confidence": 0.94
+          },
+          "CustomerName": {
+            "type": "string",
+            "valueString": "Cobalt Fabrication Ltd",
+            "content": "Cobalt Fabrication Ltd",
+            "confidence": 0.9
+          },
+          "InvoiceTotal": {
+            "type": "currency",
+            "valueCurrency": {
+              "amount": 5760,
+              "currencyCode": "USD"
+            },
+            "content": "5,760.00",
+            "confidence": 0.948
+          },
+          "Items": {
+            "type": "array",
+            "valueArray": [
+              {
+                "type": "object",
+                "confidence": 0.77,
+                "valueObject": {
+                  "ProductCode": {
+                    "type": "string",
+                    "valueString": "BLT-3001\nNUT-3101\nGSK-4001",
+                    "content": "BLT-3001\nNUT-3101\nGSK-4001",
+                    "confidence": 0.77
+                  },
+                  "Description": {
+                    "type": "string",
+                    "valueString": "Hex Bolt M8x40 (box of 100)\nHex Nut M8 (box of 100)\nRubber Gasket 50mm",
+                    "confidence": 0.7
+                  },
+                  "Quantity": {
+                    "type": "number",
+                    "valueNumber": 30,
+                    "content": "30",
+                    "confidence": 0.7
+                  },
+                  "UnitPrice": {
+                    "type": "currency",
+                    "valueCurrency": {
+                      "amount": 1.35
+                    },
+                    "content": "1.35",
+                    "confidence": 0.7
+                  }
+                }
+              }
+            ]
+          },
+          "PaymentTerm": {
+            "type": "string",
+            "valueString": "Net 30",
+            "content": "Net 30",
+            "confidence": 0.937
+          },
+          "PurchaseOrder": {
+            "type": "string",
+            "valueString": "7795",
+            "content": "7795",
+            "confidence": 0.95
+          },
+          "ShippingAddress": {
+            "type": "address",
+            "content": "Dock 4, 1200 Industrial Parkway\nDayton, OH 45402",
+            "confidence": 0.883,
+            "valueAddress": {
+              "houseNumber": "1200",
+              "road": "Industrial Parkway",
+              "postalCode": "45402",
+              "city": "Dayton",
+              "state": "OH",
+              "streetAddress": "1200 Industrial Parkway",
+              "house": "Dock 4"
+            }
+          },
+          "ShippingAddressRecipient": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing - Dayton Plant",
+            "content": "Brightline Manufacturing - Dayton Plant",
+            "confidence": 0.891
+          },
+          "SubTotal": {
+            "type": "currency",
+            "valueCurrency": {
+              "amount": 5760,
+              "currencyCode": "USD"
+            },
+            "content": "5,760.00",
+            "confidence": 0.95
+          },
+          "VendorAddress": {
+            "type": "address",
+            "content": "1200 Industrial Parkway\nDayton, OH 45402\nUSA",
+            "confidence": 0.885,
+            "valueAddress": {
+              "houseNumber": "1200",
+              "road": "Industrial Parkway",
+              "postalCode": "45402",
+              "city": "Dayton",
+              "state": "OH",
+              "countryRegion": "USA",
+              "streetAddress": "1200 Industrial Parkway"
+            }
+          },
+          "VendorAddressRecipient": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing",
+            "content": "Brightline Manufacturing",
+            "confidence": 0.587
+          },
+          "VendorName": {
+            "type": "string",
+            "valueString": "Brightline Manufacturing",
+            "content": "Brightline Manufacturing",
+            "confidence": 0.361
+          },
+          "VendorPhoneNumber": {
+            "type": "phoneNumber",
+            "valuePhoneNumber": "+15550101",
+            "content": "+1 555 0101",
+            "confidence": 0.892
+          }
+        }
+      }
+    ],
+    "tables": [
+      {
+        "rowCount": 5,
+        "columnCount": 2,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "PO Number:"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "45188"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "PO Date:"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 1,
+            "content": "2026-10-29"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "Customer No .:"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 1,
+            "content": "CUST-1001"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 0,
+            "content": "Delivery Date:"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 1,
+            "content": "2026-11-07"
+          },
+          {
+            "rowIndex": 4,
+            "columnIndex": 0,
+            "content": "Payment Terms:"
+          },
+          {
+            "rowIndex": 4,
+            "columnIndex": 1,
+            "content": "Net 30"
+          }
+        ]
+      },
+      {
+        "rowCount": 4,
+        "columnCount": 6,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "Line",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "Item Code",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 2,
+            "content": "Description",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 3,
+            "content": "Qty",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 4,
+            "content": "Unit Price",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 5,
+            "content": "Amount",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "1"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 1,
+            "content": "BLT-3001"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 2,
+            "content": "Hex Bolt M8x40 (box of 100)"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 3,
+            "content": "30"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 4,
+            "content": "22.00"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 5,
+            "content": "660.00"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "2"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 1,
+            "content": "NUT-3101"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 2,
+            "content": "Hex Nut M8 (box of 100)"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 3,
+            "content": "30"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 4,
+            "content": "9.80"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 5,
+            "content": "294.00"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 0,
+            "content": "3"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 1,
+            "content": "GSK-4001"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 2,
+            "content": "Rubber Gasket 50mm"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 3,
+            "content": "200"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 4,
+            "content": "1.35"
+          },
+          {
+            "rowIndex": 3,
+            "columnIndex": 5,
+            "content": "270.00"
+          }
+        ]
+      },
+      {
+        "rowCount": 3,
+        "columnCount": 2,
+        "cells": [
+          {
+            "rowIndex": 0,
+            "columnIndex": 0,
+            "content": "Subtotal",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 0,
+            "columnIndex": 1,
+            "content": "5,760.00",
+            "kind": "columnHeader"
+          },
+          {
+            "rowIndex": 1,
+            "columnIndex": 0,
+            "content": "Tax Exempt (resale)"
+          },
+          {
+            "rowIndex": 2,
+            "columnIndex": 0,
+            "content": "Total (USD)\n5,760.00"
+          }
+        ]
+      }
+    ]
+  }
+}

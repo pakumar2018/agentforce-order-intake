@@ -1,0 +1,7 @@
+{
+  "generations": [
+    {
+      "text": "```json\n{\"poNumber\":\"7801\",\"customerNumber\":\"CUST-1002\",\"customerName\":\"Cobalt Fabrication\",\"lines\":[{\"sku\":\"BLT-3001\",\"description\":\"Hex Bolt M8x40\",\"quantity\":40,\"unitPrice\":22},{\"sku\":\"NUT-3101\",\"description\":\"Hex Nut M8\",\"quantity\":\"1,200\",\"unitPrice\":\"$9.80\"},{\"sku\":null,\"description\":\"washers\",\"quantity\":null,\"unitPrice\":null}],\"confidence\":0.95}\n```"
+    }
+  ]
+}

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Order Intake ERP API (spec: src/main/resources/api/order-intake-erp-api.yaml)
+    POST /api/orders/{orderId}/erp-submit  creates and confirms the sales order in Odoo
+    GET  /api/orders/{orderId}/erp-status  reports the Odoo sales order for a Salesforce order
+  Both return {"status": "Confirmed" | "Failed", "erpOrderNumber": "...", "error": "..."}.
+  Odoo is called through its JSON-2 API (/json/2/<model>/<method>) with an RPC-scoped API key.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <configuration-properties file="config.yaml" doc:name="Config properties"/>
+
+    <http:listener-config name="ERP_API_Listener" doc:name="ERP API listener">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+
+    <!-- Odoo JSON-2 API: bearer API key + database header -->
+    <http:request-config name="Odoo_API" doc:name="Odoo API">
+        <http:request-connection protocol="HTTPS" host="${odoo.host}" port="443"/>
+        <http:default-headers>
+            <http:default-header key="Authorization" value="bearer ${odoo.apiKey}"/>
+            <http:default-header key="X-Odoo-Database" value="${odoo.database}"/>
+            <http:default-header key="Content-Type" value="application/json; charset=utf-8"/>
+        </http:default-headers>
+    </http:request-config>
+
+    <!-- ============ POST /api/orders/{orderId}/erp-submit ============ -->
+    <flow name="erp-submit-api">
+        <http:listener config-ref="ERP_API_Listener" path="/api/orders/{orderId}/erp-submit" allowedMethods="POST" doc:name="POST erp-submit">
+            <http:response statusCode="#[vars.httpStatus default 200]"/>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[output application/json --- payload]</http:body>
+            </http:error-response>
+        </http:listener>
+        <flow-ref name="check-api-key" doc:name="Check API key"/>
+        <set-variable variableName="orderId" value="#[attributes.uriParams.orderId]" doc:name="orderId"/>
+        <set-variable variableName="request" value="#[payload]" doc:name="Request from Salesforce"/>
+        <set-variable variableName="origin" value="#['SF:' ++ vars.orderId]" doc:name="Odoo origin key"/>
+        <logger level="INFO" message="#[%dw 2.0&#10;output application/java&#10;---&#10;'ERP submit for Salesforce order ' ++ vars.orderId ++ ' (' ++ (vars.request.intakeNumber default '') as String ++ ')']"/>
+
+        <!-- Already in Odoo? Return it, so a resubmit never creates a duplicate order -->
+        <flow-ref name="find-odoo-order" doc:name="Find existing Odoo order"/>
+        <choice doc:name="Already submitted?">
+            <when expression="#[vars.existingOrder != null and vars.existingOrder.state != 'cancel']">
+                <set-payload value="#[output application/json --- { status: 'Confirmed', erpOrderNumber: vars.existingOrder.name, error: null }]" doc:name="Existing order"/>
+            </when>
+            <otherwise>
+                <flow-ref name="create-odoo-order" doc:name="Create Odoo order"/>
+            </otherwise>
+        </choice>
+
+        <error-handler ref="erp-api-errors"/>
+    </flow>
+
+    <!-- ============ GET /api/orders/{orderId}/erp-status ============ -->
+    <flow name="erp-status-api">
+        <http:listener config-ref="ERP_API_Listener" path="/api/orders/{orderId}/erp-status" allowedMethods="GET" doc:name="GET erp-status">
+            <http:response statusCode="#[vars.httpStatus default 200]"/>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[output application/json --- payload]</http:body>
+            </http:error-response>
+        </http:listener>
+        <flow-ref name="check-api-key" doc:name="Check API key"/>
+        <set-variable variableName="orderId" value="#[attributes.uriParams.orderId]" doc:name="orderId"/>
+        <set-variable variableName="origin" value="#['SF:' ++ vars.orderId]" doc:name="Odoo origin key"/>
+        <flow-ref name="find-odoo-order" doc:name="Find Odoo order"/>
+        <set-payload doc:name="Status response" value="#[output application/json ---
+            if (vars.existingOrder == null)
+                { status: 'Failed', erpOrderNumber: null, error: 'Order not found in Odoo' }
+            else if (vars.existingOrder.state == 'cancel')
+                { status: 'Failed', erpOrderNumber: vars.existingOrder.name, error: 'Order was cancelled in Odoo' }
+            else
+                { status: 'Confirmed', erpOrderNumber: vars.existingOrder.name, error: null }]"/>
+        <error-handler ref="erp-api-errors"/>
+    </flow>
+
+    <!-- ============ Create and confirm the Odoo sales order ============ -->
+    <sub-flow name="create-odoo-order">
+        <set-variable variableName="lines" doc:name="Lines from request" value="#[output application/java --- (vars.request.lines default []) map {
+            code: $.sku,
+            qty: $.quantity as Number,
+            price: $.unitPrice as Number
+        }]"/>
+        <choice doc:name="Has lines?">
+            <when expression="#[isEmpty(vars.lines)]">
+                <raise-error type="APP:ERP_REJECTED" description="The order has no lines."/>
+            </when>
+        </choice>
+        <set-variable variableName="orderTotal" value="#[sum(vars.lines map ($.qty * $.price))]" doc:name="Order total"/>
+
+        <!-- Customer, matched on the Salesforce account number stored as the Odoo customer Reference -->
+        <set-variable variableName="odooModel" value="res.partner"/>
+        <set-variable variableName="odooMethod" value="search_read"/>
+        <set-payload value="#[output application/json --- {
+            domain: [['ref', '=', vars.request.accountNumber default '']],
+            fields: ['id', 'name', 'credit_limit', 'credit'],
+            limit: 1
+        }]"/>
+        <flow-ref name="odoo-call" doc:name="Find customer"/>
+        <choice doc:name="Customer found?">
+            <when expression="#[isEmpty(payload)]">
+                <raise-error type="APP:ERP_REJECTED" description="#['Customer ' ++ (vars.request.accountNumber default 'without account number') ++ ' does not exist in the ERP.']"/>
+            </when>
+        </choice>
+        <set-variable variableName="partner" value="#[payload[0]]" doc:name="Customer"/>
+
+        <!-- Credit check: open receivables plus this order must stay within the Odoo credit limit -->
+        <choice doc:name="Within credit limit?">
+            <when expression="#[((vars.partner.credit_limit default 0) as Number) > 0 and (((vars.partner.credit default 0) as Number) + vars.orderTotal) > (vars.partner.credit_limit as Number)]">
+                <raise-error type="APP:ERP_REJECTED"
+                             description="#['Credit limit exceeded: order total ' ++ (vars.orderTotal as String {format: '#,##0.00'}) ++ ' plus open balance ' ++ (((vars.partner.credit default 0) as Number) as String {format: '#,##0.00'}) ++ ' is above the customer credit limit of ' ++ ((vars.partner.credit_limit as Number) as String {format: '#,##0.00'}) ++ ' in Odoo. Credit team approval required.']"/>
+            </when>
+        </choice>
+
+        <!-- Products, matched on SKU = Odoo Internal Reference -->
+        <set-variable variableName="odooModel" value="product.product"/>
+        <set-variable variableName="odooMethod" value="search_read"/>
+        <set-payload value="#[output application/json --- {
+            domain: [['default_code', 'in', vars.lines.code distinctBy $]],
+            fields: ['id', 'default_code']
+        }]"/>
+        <flow-ref name="odoo-call" doc:name="Find products"/>
+        <set-variable variableName="productIds" value="#[payload reduce ((p, acc = {}) -> acc ++ { (p.default_code): p.id })]" doc:name="SKU to product id"/>
+        <set-variable variableName="missingSkus" value="#[vars.lines.code filter (vars.productIds[$] == null)]"/>
+        <choice doc:name="All products known?">
+            <when expression="#[not isEmpty(vars.missingSkus)]">
+                <raise-error type="APP:ERP_REJECTED" description="#['Products not found in the ERP: ' ++ (vars.missingSkus joinBy ', ') ++ '.']"/>
+            </when>
+        </choice>
+
+        <!-- Create the sales order -->
+        <set-variable variableName="odooModel" value="sale.order"/>
+        <set-variable variableName="odooMethod" value="create"/>
+        <set-payload value="#[output application/json --- {
+            vals_list: [{
+                partner_id: vars.partner.id,
+                client_order_ref: vars.request.poNumber default '',
+                origin: vars.origin,
+                note: 'Created from Salesforce order ' ++ (vars.request.orderNumber default '') ++ ' (' ++ (vars.request.intakeNumber default '') ++ ') by the Agentforce Order Intake Assistant',
+                order_line: vars.lines map [0, 0, {
+                    product_id: vars.productIds[$.code],
+                    product_uom_qty: $.qty,
+                    price_unit: $.price
+                }]
+            }]
+        }]"/>
+        <flow-ref name="odoo-call" doc:name="Create sale.order"/>
+        <set-variable variableName="odooOrderId" value="#[payload[0]]" doc:name="Odoo order id"/>
+
+        <!-- Confirm it (quotation becomes a sales order) -->
+        <set-variable variableName="odooMethod" value="action_confirm"/>
+        <set-payload value="#[output application/json --- { ids: [vars.odooOrderId] }]"/>
+        <flow-ref name="odoo-call" doc:name="Confirm order"/>
+
+        <set-variable variableName="odooMethod" value="read"/>
+        <set-payload value="#[output application/json --- { ids: [vars.odooOrderId], fields: ['name', 'state', 'amount_total'] }]"/>
+        <flow-ref name="odoo-call" doc:name="Read order number"/>
+        <logger level="INFO" message="#['Odoo order ' ++ payload[0].name ++ ' created for Salesforce order ' ++ vars.orderId]"/>
+        <set-payload value="#[output application/json --- { status: 'Confirmed', erpOrderNumber: payload[0].name, error: null }]" doc:name="Confirmed response"/>
+    </sub-flow>
+
+    <sub-flow name="find-odoo-order">
+        <set-variable variableName="odooModel" value="sale.order"/>
+        <set-variable variableName="odooMethod" value="search_read"/>
+        <set-payload value="#[output application/json --- {
+            domain: [['origin', '=', vars.origin]],
+            fields: ['id', 'name', 'state'],
+            order: 'id desc',
+            limit: 1
+        }]"/>
+        <flow-ref name="odoo-call" doc:name="Search sale.order"/>
+        <set-variable variableName="existingOrder" value="#[if (isEmpty(payload)) null else payload[0]]"/>
+    </sub-flow>
+
+    <!-- One Odoo JSON-2 call: POST /json/2/{vars.odooModel}/{vars.odooMethod} with the current payload -->
+    <sub-flow name="odoo-call">
+        <http:request config-ref="Odoo_API" method="POST" doc:name="Odoo JSON-2"
+                      path="#['/json/2/' ++ vars.odooModel ++ '/' ++ vars.odooMethod]"/>
+        <set-payload value="#[output application/java --- payload]"/>
+    </sub-flow>
+
+    <sub-flow name="check-api-key">
+        <choice doc:name="Valid API key?">
+            <when expression="#[attributes.headers.'x-api-key' != p('api.key')]">
+                <set-variable variableName="httpStatus" value="401"/>
+                <raise-error type="APP:UNAUTHORIZED" description="Missing or invalid X-Api-Key header"/>
+            </when>
+        </choice>
+    </sub-flow>
+
+    <!-- Business rejections and Odoo errors come back as a Failed status the agent can explain -->
+    <error-handler name="erp-api-errors">
+        <on-error-propagate type="APP:UNAUTHORIZED">
+            <set-payload value="#[output application/json --- { status: 'Failed', erpOrderNumber: null, error: error.description }]"/>
+        </on-error-propagate>
+        <on-error-continue type="APP:ERP_REJECTED">
+            <logger level="WARN" message="#['ERP rejected: ' ++ (error.description default '')]"/>
+            <set-payload value="#[output application/json --- { status: 'Failed', erpOrderNumber: null, error: error.description }]"/>
+        </on-error-continue>
+        <on-error-continue type="HTTP:BAD_REQUEST, HTTP:UNAUTHORIZED, HTTP:FORBIDDEN, HTTP:NOT_FOUND, HTTP:INTERNAL_SERVER_ERROR, HTTP:CONNECTIVITY, HTTP:TIMEOUT">
+            <logger level="ERROR" message="#['Odoo call failed: ' ++ (error.description default '')]"/>
+            <set-payload value="#[output application/json --- {
+                status: 'Failed',
+                erpOrderNumber: null,
+                error: 'ERP error: ' ++ ((error.errorMessage.payload.message default error.description) default 'unknown error')
+            }]"/>
+        </on-error-continue>
+        <on-error-continue type="ANY">
+            <logger level="ERROR" message="#['ERP API failed: ' ++ (error.description default '')]"/>
+            <set-payload value="#[output application/json --- { status: 'Failed', erpOrderNumber: null, error: 'ERP integration error: ' ++ (error.description default 'unknown error') }]"/>
+        </on-error-continue>
+    </error-handler>
+</mule>
