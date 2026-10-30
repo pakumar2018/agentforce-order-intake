@@ -1,4 +1,4 @@
-name: MuleSoft: email ingest
+name: 'MuleSoft: email ingest'
 
 # Deploys to CloudHub 2.0 when this app changes on main, or on demand (Actions tab > Run workflow)
 on:

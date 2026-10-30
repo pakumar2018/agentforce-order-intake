@@ -1,4 +1,4 @@
-name: MuleSoft: ERP API
+name: 'MuleSoft: ERP API'
 
 # Deploys to CloudHub 2.0 when this app changes on main, or on demand (Actions tab > Run workflow)
 on:
