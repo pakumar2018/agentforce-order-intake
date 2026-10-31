@@ -76,7 +76,7 @@ global with sharing class OrderIntakeExtractionApi {
             intake.Processing_Error__c = req.error.left(255);
         }
         intake.Extraction_Confidence__c = req.extractionConfidence;
-        intake.Extraction_Source__c = String.isBlank(req.source) ? null : req.source.left(40);
+        intake.Extraction_Source__c = String.isBlank(req.source) ? null : req.source.left(80);
         if (req.extractionConfidence != null && req.extractionConfidence < LOW_CONFIDENCE_THRESHOLD) {
             reasons.add('Low Confidence');
         }

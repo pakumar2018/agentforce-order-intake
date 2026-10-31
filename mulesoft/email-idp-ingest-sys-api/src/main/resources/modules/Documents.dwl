@@ -1,9 +1,10 @@
 %dw 2.0
+import fail from dw::Runtime
 
 // Which attachment holds the purchase order, and how Azure Document Intelligence reads it.
 //   invoice: PDF and images, read by the prebuilt invoice model (PO fields + line table)
 //   office:  Word, Excel, PowerPoint and HTML, which the invoice model does not accept; the layout model
-//            returns their text and tables as markdown, and the email-body prompt template reads that
+//            returns their text and tables as markdown, and the Extract_Order_From_Document prompt template reads that
 var contentTypes = {
     pdf: "application/pdf",
     jpg: "image/jpeg",
@@ -42,10 +43,14 @@ fun poDocument(attachments) = do {
     if (isEmpty(sorted)) null else sorted[0] ++ { readMode: readMode(sorted[0].name), contentType: contentType(sorted[0].name) }
 }
 
-// Mule parses attachments whose type it understands (Excel, CSV, JSON, XML) into data. Turn those back into a
-// file so they can be stored in Salesforce and sent to Azure; files that arrive as bytes are kept as they are.
-var writerTypes = { xlsx: "application/xlsx", csv: "application/csv", json: "application/json", xml: "application/xml" }
-fun fileBytes(content, name) =
-    if (content is Binary) content
-    else if (content is String) (content as Binary {encoding: "UTF-8"})
-    else write(content, writerTypes[extension(name)] default "application/json") as Binary
+// The email listener types each attachment with its Content-Type, so DataWeave parses Excel, CSV, JSON and
+// XML attachments into data when they are read (an .xlsx becomes { "Sheet": [rows] }). Writing that data
+// back would make a different file, so the original bytes are taken from ^raw, which the reader keeps.
+// Files without a reader (PDF, images, Word) are already Binary.
+fun originalFile(content, name: String) = do {
+    var raw = content.^raw
+    ---
+    if (raw is Binary) raw
+    else if (content is Binary) content
+    else fail("Attachment " ++ name ++ " has no original bytes (" ++ (typeOf(content) as String) ++ ")")
+}

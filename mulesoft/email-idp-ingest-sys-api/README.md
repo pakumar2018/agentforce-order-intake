@@ -6,13 +6,17 @@ Reads purchase-order emails from Gmail, classifies them with Agentforce, reads t
 
 ```
 Gmail label "Orders"
-  -> Salesforce Order_Intake__c (upsert on a hash of the Gmail Message-ID, PDF attached as a File)
+  -> Salesforce Order_Intake__c (upsert on a hash of the Gmail Message-ID, every attachment stored as the original file)
   -> Agentforce prompt template Classify_Order_Email (Purchase Order / Change Order / Inquiry / Other);
      it sees the subject, the plain-text body and the attachment file names
-  -> Purchase Order: Azure Document Intelligence (prebuilt invoice model) reads the PDF
+  -> Purchase Order: prompt template Extract_Order_From_Email reads the email body, and the PO attachment is read too
+     (PDF/image: Azure prebuilt invoice model; Word/Excel: Azure layout model + prompt template
+     Extract_Order_From_Document); modules/Extractions.dwl merges the two readings
        -> Salesforce Apex REST /orderintake/v1/extraction builds the lines, matches the customer
           (sender email, then CustomerId on the PO) and products, and sets status
-          Extracted (clean) or Needs Review (with exceptions)
+          Extracted (clean) or Needs Review (with exceptions); a clean PO becomes an order
+       -> order.autoSubmitErp: Apex REST /orderintake/v1/erp-submit sends it to the ERP;
+          ERP Confirmed -> reply with the ERP order number; ERP Failed -> no reply, review Case
   -> email moved to Processed / Needs-Review / Not-Order
 ```
 
@@ -22,6 +26,8 @@ Gmail label "Orders"
 | `src/main/mule/salesforce-api.xml` | Salesforce REST calls (client credentials) |
 | `src/main/mule/azure-docintel.xml` | Azure Document Intelligence analysis and polling |
 | `src/main/resources/dw/azure-to-extraction.dwl` | Maps the Azure result (PurchaseOrder, CustomerId, Items) to Salesforce |
+| `src/main/resources/modules/Extractions.dwl` | Merges the email-body and attachment extractions |
+| `src/main/resources/modules/Documents.dwl` | Picks the PO attachment and Azure model; keeps attachments as their original bytes |
 | `src/main/resources/mule-app-dev.properties` | Non-secret settings |
 | `src/test/resources/azure-invoice-po-45188.json` | Real Azure result for the PO 45188 demo PDF, used by MUnit |
 

@@ -21,6 +21,7 @@
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Subject__c</field><readable>true</readable></fieldPermissions>
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Received_At__c</field><readable>true</readable></fieldPermissions>
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Email_Body__c</field><readable>true</readable></fieldPermissions>
+    <fieldPermissions><editable>false</editable><field>Order_Intake__c.Document_Text__c</field><readable>true</readable></fieldPermissions>
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Account__c</field><readable>true</readable></fieldPermissions>
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Classification__c</field><readable>true</readable></fieldPermissions>
     <fieldPermissions><editable>true</editable><field>Order_Intake__c.Classification_Confidence__c</field><readable>true</readable></fieldPermissions>

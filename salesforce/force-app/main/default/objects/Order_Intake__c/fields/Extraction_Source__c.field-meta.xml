@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Extraction_Source__c</fullName>
-    <description>Where the order details were read from: the PDF (Azure Document Intelligence) or the email body (prompt template).</description>
+    <description>Where the order details were read from: the attachment (Azure Document Intelligence), the email body (prompt template), or both, for example "attachment PO-7803-Cobalt.xlsx + email body".</description>
     <label>Extraction Source</label>
-    <length>40</length>
+    <length>80</length>
     <type>Text</type>
 </CustomField>

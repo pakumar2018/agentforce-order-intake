@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Purchase order reading and completion:
+    - modules/Extractions.dwl merges the email-body reading and the attachment reading
+    - complete-purchase-order sends a clean, created order to the ERP and replies only when the ERP confirms it
+-->
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="order-flow-test-suite.xml"/>
+    <!-- The reply is mocked, but its Gmail SMTP config still needs the secure property supplied at deployment -->
+    <global-property name="email.password" value="munit-not-used" doc:name="Test-only mail password"/>
+
+    <!-- ============ Body + attachment merge ============ -->
+
+    <munit:test name="merge-body-only" description="No readable attachment: everything comes from the email body">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import mergeExtractions from modules::Extractions&#10;output application/java&#10;---&#10;mergeExtractions({ extractionConfidence: 95, poNumber: '7801', customerName: 'Cobalt Industrial', customerNumber: 'CUST-1002', lines: [{ lineNo: 1, sku: 'BLT-3001', quantity: 30, unitPrice: 22 }], rawPayload: '{&quot;poNumber&quot;:&quot;7801&quot;}' }, null, null)]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.source]" is="#[MunitTools::equalTo('email body')]"/>
+            <munit-tools:assert-that expression="#[payload.poNumber ++ '|' ++ payload.customerNumber ++ '|' ++ payload.customerName]" is="#[MunitTools::equalTo('7801|CUST-1002|Cobalt Industrial')]"/>
+            <munit-tools:assert-that expression="#[payload.lines map ((l) -> l.sku) joinBy '|']" is="#[MunitTools::equalTo('BLT-3001')]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence]" is="#[MunitTools::equalTo(95)]"/>
+            <munit-tools:assert-that expression="#[payload.error == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[read(payload.rawPayload, 'application/json').emailBody.poNumber]" is="#[MunitTools::equalTo('7801')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="merge-attachment-only" description="'Please see attached': the body adds nothing, so its low confidence does not count">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import mergeExtractions from modules::Extractions&#10;output application/java&#10;---&#10;mergeExtractions(
+  { extractionConfidence: 30, poNumber: null, customerName: null, customerNumber: null, lines: [], rawPayload: '{}' },
+  { extractionConfidence: 91.5, poNumber: '7795', customerName: 'Cobalt Industrial', customerNumber: 'CUST-1002', lines: [{ lineNo: 1, sku: 'BLT-3001', quantity: 30, unitPrice: 22 }, { lineNo: 2, sku: 'NUT-3101', quantity: 400, unitPrice: 9.8 }], rawPayload: '{&quot;lineSource&quot;:&quot;detected table&quot;}' },
+  'PO-7795-Cobalt-clean.pdf')]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.source]" is="#[MunitTools::equalTo('attachment PO-7795-Cobalt-clean.pdf')]"/>
+            <munit-tools:assert-that expression="#[payload.poNumber ++ '|' ++ payload.customerNumber ++ '|' ++ payload.customerName]" is="#[MunitTools::equalTo('7795|CUST-1002|Cobalt Industrial')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload.lines)]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence]" is="#[MunitTools::equalTo(91.5)]"/>
+            <munit-tools:assert-that expression="#[payload.error == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[read(payload.rawPayload, 'application/json').lineSource]" is="#[MunitTools::equalTo('attachment')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="merge-body-and-attachment-agreeing" description="PO 7803: lines and PO from the Excel file, customer name from the body, lower confidence of the two">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import mergeExtractions from modules::Extractions&#10;output application/java&#10;---&#10;mergeExtractions(
+  { extractionConfidence: 82, poNumber: '7803', customerName: 'Cobalt Industrial', customerNumber: null, lines: [{ lineNo: 1, sku: 'BLT-3001', quantity: 30, unitPrice: 22 }], rawPayload: '{}' },
+  { extractionConfidence: 95, poNumber: 'PO-7803', customerName: null, customerNumber: 'CUST-1002', lines: [{ lineNo: 1, sku: 'BLT-3001', quantity: 30, unitPrice: 22 }, { lineNo: 2, sku: 'NUT-3101', quantity: 400, unitPrice: 9.8 }, { lineNo: 3, sku: 'GSK-4001', quantity: 200, unitPrice: 3.1 }], rawPayload: '{}' },
+  'PO-7803-Cobalt.xlsx')]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.source]" is="#[MunitTools::equalTo('attachment PO-7803-Cobalt.xlsx + email body')]"/>
+            <munit-tools:assert-that expression="#[payload.lines map ((l) -> l.sku) joinBy '|']" is="#[MunitTools::equalTo('BLT-3001|NUT-3101|GSK-4001')]"/>
+            <munit-tools:assert-that expression="#[payload.poNumber ++ '|' ++ payload.customerNumber ++ '|' ++ payload.customerName]" is="#[MunitTools::equalTo('PO-7803|CUST-1002|Cobalt Industrial')]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence]" is="#[MunitTools::equalTo(82)]"/>
+            <munit-tools:assert-that expression="#[payload.error == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[read(payload.rawPayload, 'application/json').filledFromBody joinBy '|']" is="#[MunitTools::equalTo('customerName')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="merge-uses-body-lines-when-the-attachment-has-none" description="The attachment names the PO but has no readable lines: the lines written in the body are used">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import mergeExtractions from modules::Extractions&#10;output application/java&#10;---&#10;mergeExtractions(
+  { extractionConfidence: 90, poNumber: '7810', customerName: null, customerNumber: null, lines: [{ lineNo: 1, sku: 'PMP-6001', quantity: 2, unitPrice: 449 }], rawPayload: '{}' },
+  { extractionConfidence: 60, poNumber: '7810', customerName: 'Cobalt Industrial', customerNumber: null, lines: [], rawPayload: '{}' },
+  'cover-letter.docx')]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.source]" is="#[MunitTools::equalTo('attachment cover-letter.docx + email body')]"/>
+            <munit-tools:assert-that expression="#[payload.lines[0].sku]" is="#[MunitTools::equalTo('PMP-6001')]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence]" is="#[MunitTools::equalTo(60)]"/>
+            <munit-tools:assert-that expression="#[read(payload.rawPayload, 'application/json').lineSource]" is="#[MunitTools::equalTo('email body')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="merge-flags-a-po-number-mismatch" description="Body says PO 7804, the attachment PO-7803: the attachment's is kept and error makes Salesforce flag the intake">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import mergeExtractions from modules::Extractions&#10;output application/java&#10;---&#10;mergeExtractions(
+  { extractionConfidence: 95, poNumber: '7804', customerName: 'Cobalt Industrial', customerNumber: null, lines: [], rawPayload: '{}' },
+  { extractionConfidence: 93, poNumber: 'PO-7803', customerName: 'Cobalt Industrial', customerNumber: 'CUST-1002', lines: [{ lineNo: 1, sku: 'BLT-3001', quantity: 30, unitPrice: 22 }], rawPayload: '{}' },
+  'PO-7803-Cobalt.xlsx')]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.poNumber]" is="#[MunitTools::equalTo('PO-7803')]"/>
+            <munit-tools:assert-that expression="#[payload.error contains 'PO number PO-7803 in the attachment differs from 7804 in the email body']" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.source]" is="#[MunitTools::equalTo('attachment PO-7803-Cobalt.xlsx')]"/>
+            <munit-tools:assert-that expression="#[payload.extractionConfidence]" is="#[MunitTools::equalTo(93)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ============ Clean order: ERP submit, then the reply ============ -->
+
+    <munit:test name="erp-confirmed-order-gets-reply-with-erp-number" description="Order created and auto-submitted; the ERP confirms: reply with the ERP number, email to Processed">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST extraction"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[output application/json --- { intakeNumber: 'OI-00050', status: 'Order Created', lineCount: 3, orderNumber: '00000150', replySubject: 'Order confirmation - PO 7803 (00000150)', replyBody: 'Your order has been created as order 00000150.' }]" mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST ERP submit"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[output application/json --- { intakeNumber: 'OI-00050', status: 'ERP Confirmed', erpOrderNumber: 'S00042', message: 'ERP accepted order 00000150 as S00042.', replySubject: 'Order confirmation - PO 7803 (S00042)', replyBody: 'Your order has been created as order S00042.' }]" mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="email:send">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Order created reply"/>
+                </munit-tools:with-attributes>
+            </munit-tools:mock-when>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="intakeId" value="a0X000000000001"/>
+                    <munit:variable key="sfAuth" value="Bearer test"/>
+                    <munit:variable key="extraction" value="#[output application/java --- { poNumber: 'PO-7803', lines: [], source: 'attachment PO-7803-Cobalt.xlsx + email body' }]"/>
+                    <munit:variable key="email" value="#[output application/java --- { from: 'demo.dealer.po+cobalt@gmail.com', subject: 'Purchase order 7803', messageId: '&lt;po7803@mail.gmail.com&gt;' }]"/>
+                </munit:variables>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="complete-purchase-order"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="email:send" times="1">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Order created reply"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:assert-that expression="#[vars.reply.body]" is="#[MunitTools::equalTo('Your order has been created as order S00042.')]"/>
+            <munit-tools:assert-that expression="#[vars.reply.orderNumber]" is="#[MunitTools::equalTo('S00042')]"/>
+            <munit-tools:assert-that expression="#[vars.targetFolder]" is="#[MunitTools::equalTo('Processed')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="erp-failed-order-gets-no-reply" description="The ERP rejects the order (credit limit): no reply, email to Needs-Review">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST extraction"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[output application/json --- { intakeNumber: 'OI-00051', status: 'Order Created', lineCount: 1, orderNumber: '00000151', replySubject: 'Order confirmation - PO HP-2240 (00000151)', replyBody: 'Your order has been created as order 00000151.' }]" mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST ERP submit"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[output application/json --- { intakeNumber: 'OI-00051', status: 'ERP Failed', message: 'ERP rejected order 00000151: Credit limit exceeded.' }]" mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="email:send">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Order created reply"/>
+                </munit-tools:with-attributes>
+            </munit-tools:mock-when>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="intakeId" value="a0X000000000002"/>
+                    <munit:variable key="sfAuth" value="Bearer test"/>
+                    <munit:variable key="extraction" value="#[output application/java --- { poNumber: 'HP-2240', lines: [], source: 'attachment PO-HP-2240.pdf' }]"/>
+                    <munit:variable key="email" value="#[output application/java --- { from: 'demo.dealer.po+harborpine@gmail.com', subject: 'PO HP-2240', messageId: '&lt;hp2240@mail.gmail.com&gt;' }]"/>
+                </munit:variables>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="complete-purchase-order"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="email:send" times="0">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Order created reply"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:assert-that expression="#[vars.reply == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.targetFolder]" is="#[MunitTools::equalTo('Needs-Review')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="needs-review-intake-is-not-sent-to-erp" description="An intake with exceptions has no order: no ERP submit, no reply, email to Needs-Review">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST extraction"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[output application/json --- { intakeNumber: 'OI-00052', status: 'Needs Review', lineCount: 3, exceptions: 'Unknown SKU' }]" mediaType="application/json"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="intakeId" value="a0X000000000003"/>
+                    <munit:variable key="sfAuth" value="Bearer test"/>
+                    <munit:variable key="extraction" value="#[output application/java --- { poNumber: '45188', lines: [], source: 'attachment PO-45188.pdf' }]"/>
+                    <munit:variable key="email" value="#[output application/java --- { from: 'demo.dealer.po+brightline@gmail.com', subject: 'PO 45188', messageId: '&lt;45188@mail.gmail.com&gt;' }]"/>
+                </munit:variables>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="complete-purchase-order"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Apex REST ERP submit"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:assert-that expression="#[vars.reply == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.targetFolder]" is="#[MunitTools::equalTo('Needs-Review')]"/>
+        </munit:validation>
+    </munit:test>
+</mule>

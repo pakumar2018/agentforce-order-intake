@@ -95,7 +95,7 @@ output application/json
         </http:request>
     </sub-flow>
 
-    <!-- Agentforce: Extract_Order_From_Email prompt template reads the PO from the email body (no PDF) -->
+    <!-- Agentforce: Extract_Order_From_Email prompt template reads the PO from the email body (every purchase order) -->
     <sub-flow name="salesforce-extract-from-body">
         <http:request method="POST" config-ref="Salesforce_HTTP" doc:name="Prompt template generation"
                       path="/services/data/${sf.apiVersion}/einstein/prompt-templates/${sf.extractTemplate}/generations">
@@ -111,16 +111,30 @@ output application/json
         <flow-ref name="map-email-body-result" doc:name="Map to extraction"/>
     </sub-flow>
 
-    <!-- The attached Word/Excel PO's text goes after the email body, where Extract_Order_From_Email reads it -->
-    <sub-flow name="salesforce-append-document-text">
-        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Email body plus document text">
+    <!-- Agentforce: Extract_Order_From_Document prompt template reads the attached Word/Excel PO. Its text
+         (Azure layout model, vars.documentText) is stored in Document_Text__c, where the template reads it,
+         so the attachment and the email body are read separately. -->
+    <sub-flow name="salesforce-extract-from-document">
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Store document text">
             <http:body><![CDATA[#[output application/json
-var text = (vars.email.body default "") ++ "\n\n[Attachment " ++ vars.pdf.name ++ "]\n" ++ (vars.documentText default "")
+var text = "[" ++ vars.pdf.name ++ "]\n" ++ (vars.documentText default "")
 ---
-{ Email_Body__c: if (sizeOf(text) > 32000) text[0 to 31999] else text }]]]></http:body>
+{ Document_Text__c: if (sizeOf(text) > 131072) text[0 to 131071] else text }]]]></http:body>
             <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
             <http:uri-params><![CDATA[#[{ intakeId: vars.intakeId }]]]></http:uri-params>
         </http:request>
+        <http:request method="POST" config-ref="Salesforce_HTTP" doc:name="Document prompt template generation"
+                      path="/services/data/${sf.apiVersion}/einstein/prompt-templates/${sf.extractDocumentTemplate}/generations">
+            <http:body><![CDATA[#[output application/json
+---
+{
+    isPreview: false,
+    inputParams: { valueMap: { "Input:Order_Intake": { value: { id: vars.intakeId } } } },
+    additionalConfig: { numGenerations: 1, temperature: 0, applicationName: "PromptBuilderPreview" }
+}]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+        <flow-ref name="map-email-body-result" doc:name="Map to extraction"/>
     </sub-flow>
 
     <sub-flow name="map-email-body-result">
@@ -137,11 +151,22 @@ var text = (vars.email.body default "") ++ "\n\n[Attachment " ++ vars.pdf.name +
         <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/apexrest/orderintake/v1/extraction" doc:name="Apex REST extraction">
             <http:body><![CDATA[#[output application/json
 ---
-vars.extraction ++ { intakeId: vars.intakeId, source: vars.extractionSource, autoCreateOrder: p('order.autoCreate') == "true" }]]]></http:body>
+vars.extraction ++ { intakeId: vars.intakeId, autoCreateOrder: p('order.autoCreate') == "true" }]]]></http:body>
             <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
         </http:request>
         <set-variable variableName="extractionResult" value="#[output application/java --- payload]" doc:name="Extraction result"/>
         <logger level="INFO" message="#[output application/java --- 'Intake ' ++ (payload.intakeNumber default vars.intakeId) ++ ' is ' ++ (payload.status default '?') ++ ' with ' ++ (payload.lineCount default 0) ++ ' lines; exceptions: ' ++ (payload.exceptions default 'none') ++ (if (payload.orderNumber != null) '; order ' ++ payload.orderNumber else '')]" doc:name="Log extraction result"/>
+    </sub-flow>
+
+    <!-- Salesforce sends the new order to the ERP (Submit Order To ERP, through order-intake-erp-api) in its own
+         transaction and answers with the ERP result and, when confirmed, the customer confirmation -->
+    <sub-flow name="salesforce-submit-erp">
+        <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/apexrest/orderintake/v1/erp-submit" doc:name="Apex REST ERP submit">
+            <http:body><![CDATA[#[output application/json --- { intakeId: vars.intakeId }]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+        </http:request>
+        <set-variable variableName="erpResult" value="#[output application/java --- payload]" doc:name="ERP result"/>
+        <logger level="INFO" message="#[output application/java --- 'Intake ' ++ (payload.intakeNumber default vars.intakeId) ++ ' ERP submit: ' ++ (payload.status default '?') ++ (if (payload.erpOrderNumber != null) ' as ' ++ payload.erpOrderNumber else '') ++ ' - ' ++ (payload.message default '')]" doc:name="Log ERP result"/>
     </sub-flow>
 
     <sub-flow name="salesforce-mark-not-order">

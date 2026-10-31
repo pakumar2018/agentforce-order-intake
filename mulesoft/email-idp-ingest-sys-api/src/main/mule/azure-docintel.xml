@@ -3,7 +3,7 @@
   Azure AI Document Intelligence: analyze the PO document in vars.pdf (name, content, contentType).
     PDF and images: prebuilt invoice model (PurchaseOrder, CustomerId, Items and the line table).
     Word, Excel, PowerPoint, HTML: the invoice model does not accept them, so the layout model returns their
-    text and tables as markdown (read-office-with-azure), which the email-body prompt template then reads.
+    text and tables as markdown (read-office-with-azure), which the Extract_Order_From_Document prompt template then reads.
     POST https://{ocr.host}/documentintelligence/documentModels/{ocr.model}:analyze?api-version={ocr.apiVersion}
       -> 202 with an Operation-Location header
     GET  Operation-Location until status is succeeded or failed

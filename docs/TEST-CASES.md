@@ -7,16 +7,20 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 
 | # | Test | Input | Expected in Salesforce | Expected in Gmail |
 |---|---|---|---|---|
-| A1 | Clean PO | From `+cobalt`, attach `PO-7795-Cobalt-clean.pdf` | Intake **Order Created** with a Salesforce order, Extraction Source PDF, PO 7795, Cobalt Fabrication Ltd, 3 Matched lines (BLT-3001 ×30 @ 22.00, NUT-3101 ×30 @ 9.80, GSK-4001 ×200 @ 1.35), no Case | **Processed**; "order created" reply in the dealer's thread with the lines and total |
+| A1 | Clean PO | From `+cobalt`, attach `PO-7795-Cobalt-clean.pdf` | Salesforce order created and sent to Odoo automatically: intake **ERP Confirmed** with the Odoo order number (S000xx), Extraction Source `attachment PO-7795-Cobalt-clean.pdf` (plus ` + email body` when the body added something), PO 7795, Cobalt Fabrication Ltd, 3 Matched lines (BLT-3001 ×30 @ 22.00, NUT-3101 ×30 @ 9.80, GSK-4001 ×200 @ 1.35), no Case | **Processed**; "order created" reply in the dealer's thread with the Odoo order number, the lines and total |
 | A2 | PO with exceptions | From `+brightline`, attach `PO-45188-Brightline-exceptions.pdf` | **Needs Review**, PO 45188, Brightline Manufacturing; line 1 WID-1001 Matched, line 2 BRG6204 Unmatched (**Unknown SKU**), line 3 VLV-5001 **Price Mismatch**; review **Case** opened (subject with PO and exceptions, description with all lines and the email body) | **Needs-Review**; no reply |
-| A3 | Credit limit PO | From `+harborpine`, attach `PO-HP-2240-HarborPine-credit-limit.pdf` | **Order Created**, PO HP-2240, Harbor and Pine, 1 line PMP-6001 ×80 @ 449.00 (total 35,920); the ERP rejects it later on credit limit | **Processed**; reply sent |
+| A3 | Credit limit PO | From `+harborpine`, attach `PO-HP-2240-HarborPine-credit-limit.pdf` | Order created, then sent to Odoo automatically and rejected on the credit limit: intake **ERP Failed** with the Odoo error in ERP Error, PO HP-2240, Harbor and Pine, 1 line PMP-6001 ×80 @ 449.00 (total 35,920); High priority review **Case** "ERP rejected the order" | **Needs-Review**; no reply |
 | A4 | Faded scan | From `+summit`, attach `PO-SMW-5541-Summit-scanned.pdf` | **Needs Review**, PO SMW-5541; FLT-7001 Matched, HYD-FLTR-CRTG **Unknown SKU**; also **Low Confidence** if Azure scores below 80%; review **Case** opened | **Needs-Review** |
 | A5 | Empty body, PDF only | Any alias, no body text, subject "PO 7795", PDF attached | Still classified **Purchase Order** (classifier sees the attachment name) | As A1 |
 | A6 | Not an order | Any alias, no attachment, "Do you have pumps in stock?" | **Not Order**, classification Inquiry/Other, no lines | **Not-Order** |
 | A7 | Duplicate | The same email processed again (marked unread) | No second intake (same Gmail Message-ID key); log says duplicate skipped | Moved as before |
-| A9 | Order in the email body | From `+cobalt`, no attachment, subject "PO 7801", body "Please supply 40 x BLT-3001 Hex Bolt at 22.00 and 40 x NUT-3101 Hex Nut at 9.80. Customer CUST-1002." | Azure skipped; **Order Created**, Extraction Source **email body**, PO 7801, 2 Matched lines | **Processed**; "order created" reply |
+| A9 | Order in the email body | From `+cobalt`, no attachment, subject "PO 7801", body "Please supply 40 x BLT-3001 Hex Bolt at 22.00 and 40 x NUT-3101 Hex Nut at 9.80. Customer CUST-1002." | Azure skipped; **ERP Confirmed** (order created and sent to Odoo), Extraction Source **email body**, PO 7801, 2 Matched lines | **Processed**; "order created" reply with the Odoo order number |
 | A10 | Incomplete body order | From `+cobalt`, no attachment, body "Please send 50 more of the usual bolts" | **Needs Review** (Missing Field and/or Unknown SKU, low confidence); review **Case** opened with the email body | **Needs-Review**; no reply |
 | A11 | Rep resolves a review | After A2, fix the lines with the agent and create the order (B3–B6) | Intake **Order Created**; the review **Case closes** automatically | — |
+| A12 | Excel PO | From `+cobalt`, subject "Purchase order 7803", short body, attach `PO-7803-Cobalt.xlsx` (in `mulesoft/email-idp-ingest-sys-api/src/test/resources`) | The .xlsx is on the intake under Files (original file, opens in Excel); Document Text holds its text; Extraction Source `attachment PO-7803-Cobalt.xlsx` (` + email body` if the body filled a gap); lines from the spreadsheet | **Processed** with a reply when clean and ERP confirmed |
+| A13 | Word PO | As A12 with a .docx PO | Same as A12, read with the Azure layout model and `Extract_Order_From_Document` | As A12 |
+| A14 | PO number mismatch | From `+cobalt`, body "Please process PO 7804", attach `PO-7795-Cobalt-clean.pdf` | **Needs Review** (Missing Field); Processing Error "PO number 7795 in the attachment differs from 7804 in the email body ..."; Customer PO Number 7795 (the attachment's); review **Case** | **Needs-Review**; no reply |
+| A15 | Rep resends after an ERP failure | After A3, raise the credit limit in Odoo (or lower the quantity), then ask the agent "Resend PO HP-2240 to the ERP" | Intake **ERP Confirmed**; the ERP review **Case closes** automatically | — |
 | A8 | Unknown sender | Send from an address with no contact, PDF with customer no. CUST-1002 | Customer matched by customer number from the PDF | As A1 |
 
 ## B. Agent (Order Desk app → Agentforce panel)
@@ -44,10 +48,10 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 
 | Suite | How to run | Count | Expected |
 |---|---|---|---|
-| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 17 (actions, extraction endpoint, auto order creation with confirmation, review Case open and close) | All pass |
+| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 21 (actions, extraction endpoint, auto order creation with confirmation, ERP submit endpoint with confirmed, failed and resent orders, review Case open and close) | All pass |
 | Agentforce Testing Center | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10 | 10/10 output validation pass |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails | PO, change order, inquiry and other classified correctly |
-| MUnit (email ingest) | `mvn clean package` | 10 | All pass: Excel attachments kept as files, choice of PO document and Azure model, Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
+| MUnit (email ingest) | `mvn clean package` | 18 | All pass: an .xlsx attachment through the listener's own transform keeps its original bytes, body + attachment merge (body only, attachment only, both agreeing, body lines when the attachment has none, PO mismatch), ERP submit after order creation (confirmed: reply with the ERP number; failed: no reply, Needs-Review; review intake: not sent), choice of PO document and Azure model, Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
 
 ## D. Integration and security checks
 
@@ -55,6 +59,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 |---|---|---|
 | D1 | Call the ERP API without `X-Api-Key` | 401, no Odoo order |
 | D2 | Wrong ApiKey in the Salesforce External Credential | Agent reports "Missing or invalid X-Api-Key"; intake ERP Failed |
+| D6 | ERP API down when a clean order arrives | Order created; intake **ERP Failed** with the HTTP error in ERP Error; review **Case**; no reply; email to **Needs-Review**; the rep resends it with the agent later |
 | D3 | Azure key wrong or quota exceeded | Intake **Error** with the Azure message in Processing Error; a High priority review **Case**; email stays in Orders |
 | D5 | Gmail SMTP fails (for example a wrong App Password) | Order still created; the log shows "reply ... failed"; email moved as usual |
 | D4 | Both Studio and CloudHub running | Not allowed: run only one copy |
@@ -64,6 +69,6 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | # | Test | Expected |
 |---|---|---|
 | E1 | Actions → **MuleSoft: ERP API** → Run workflow | Green run; new Exchange version; app Running in Runtime Manager at the same URL; D1 still returns 401 |
-| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (10 MUnit tests pass first); app Running; A9 still works |
+| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (18 MUnit tests pass first); app Running; A9 still works |
 | E3 | Push a change under `mulesoft/<app>/` to `main` | Only that app's workflow runs and deploys |
 | E4 | Actions → **Salesforce: deploy** → Run workflow | Green run; metadata deployed; all Apex tests pass |

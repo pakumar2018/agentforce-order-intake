@@ -99,6 +99,13 @@
 			<version>1.12.2</version>
 			<classifier>mule-plugin</classifier>
 		</dependency>
+		<!-- Test fixture (src/test/java) builds the email listener payload with Mule TypedValues -->
+		<dependency>
+			<groupId>org.mule.runtime</groupId>
+			<artifactId>mule-api</artifactId>
+			<version>1.11.0</version>
+			<scope>provided</scope>
+		</dependency>
 		<dependency>
 			<groupId>com.mulesoft.munit</groupId>
 			<artifactId>munit-runner</artifactId>

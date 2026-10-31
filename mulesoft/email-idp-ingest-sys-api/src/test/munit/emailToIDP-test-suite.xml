@@ -110,12 +110,22 @@
         </munit:validation>
     </munit:test>
 
-    <munit:test name="excel-attachment-stays-a-file" description="An Excel attachment, which Mule parses into data, is still uploaded as the original file bytes">
+    <munit:test name="excel-attachment-survives-the-listener-transform" description="PO 7803: the Gmail listener types an .xlsx attachment as Excel; the listener's transform keeps the original file bytes">
+        <munit:behavior>
+            <munit:set-event>
+                <munit:payload value="#[java!com::osf::orderintake::EmailFixtures::email('Please find our purchase order attached.', 'PO-7803-Cobalt.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name=PO-7803-Cobalt.xlsx', 'PO-7803-Cobalt.xlsx')]"/>
+                <munit:attributes value="#[output application/java --- { id: 7803, subject: 'Purchase order 7803', fromAddresses: ['Cobalt Buyer &lt;demo.dealer.po+cobalt@gmail.com&gt;'], headers: { 'Message-ID': '&lt;po7803@mail.gmail.com&gt;', Date: 'Sat, 31 Oct 2026 01:05:00 -0400' } }]"/>
+            </munit:set-event>
+        </munit:behavior>
         <munit:execution>
-            <set-payload value="#[%dw 2.0&#10;import toBase64 from dw::core::Binaries&#10;import fileBytes from modules::Documents&#10;output application/java&#10;var content = readUrl('classpath://PO-7803-Cobalt.xlsx', 'application/xlsx')&#10;var file = { name: 'PO-7803-Cobalt.xlsx', content: fileBytes(content, 'PO-7803-Cobalt.xlsx') }&#10;---&#10;toBase64(file.content as Binary)]"/>
+            <flow-ref name="read-order-email"/>
         </munit:execution>
         <munit:validation>
-            <munit-tools:assert-that expression="#[payload startsWith 'UEsDB']" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.email.body]" is="#[MunitTools::equalTo('Please find our purchase order attached.\n\n[Attachments: PO-7803-Cobalt.xlsx]')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.attachments)]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[vars.attachments[0].name]" is="#[MunitTools::equalTo('PO-7803-Cobalt.xlsx')]"/>
+            <munit-tools:assert-that expression="#[%dw 2.0&#10;import MD5 from dw::Crypto&#10;output application/java&#10;---&#10;MD5(vars.attachments[0].content as Binary) == MD5(readUrl('classpath://PO-7803-Cobalt.xlsx', 'application/octet-stream') as Binary) and sizeOf(vars.attachments[0].content as Binary) == 7045]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[%dw 2.0&#10;import poDocument from modules::Documents&#10;output application/java&#10;---&#10;poDocument(vars.attachments).readMode]" is="#[MunitTools::equalTo('office')]"/>
         </munit:validation>
     </munit:test>
 

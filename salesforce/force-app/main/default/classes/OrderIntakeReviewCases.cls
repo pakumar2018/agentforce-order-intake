@@ -1,10 +1,14 @@
 /**
  * Keeps one review Case per order email that needs a person (OrderIntakeTrigger).
- * Opens a Case when an intake becomes Needs Review or Error, and closes it once the order is created.
+ * Opens a Case when an intake becomes Needs Review, Error or ERP Failed, and closes it once the order is
+ * created or the ERP confirms it.
  */
 public with sharing class OrderIntakeReviewCases {
-    public static final Set<String> REVIEW_STATUSES = new Set<String>{ OrderIntakeService.STATUS_NEEDS_REVIEW, 'Error' };
     public static final String STATUS_ORDER_CREATED = 'Order Created';
+    public static final String STATUS_ERP_CONFIRMED = 'ERP Confirmed';
+    public static final String STATUS_ERP_FAILED = 'ERP Failed';
+    public static final Set<String> REVIEW_STATUSES = new Set<String>{ OrderIntakeService.STATUS_NEEDS_REVIEW, 'Error', STATUS_ERP_FAILED };
+    public static final Set<String> DONE_STATUSES = new Set<String>{ STATUS_ORDER_CREATED, STATUS_ERP_CONFIRMED };
 
     public static void sync(List<Order_Intake__c> intakes, Map<Id, Order_Intake__c> oldMap) {
         Set<Id> toOpen = new Set<Id>();
@@ -16,7 +20,7 @@ public with sharing class OrderIntakeReviewCases {
             }
             if (REVIEW_STATUSES.contains(intake.Status__c)) {
                 toOpen.add(intake.Id);
-            } else if (intake.Status__c == STATUS_ORDER_CREATED) {
+            } else if (DONE_STATUSES.contains(intake.Status__c)) {
                 toClose.add(intake.Id);
             }
         }
@@ -87,6 +91,8 @@ public with sharing class OrderIntakeReviewCases {
                 : '"' + (intake.Subject__c == null ? 'no subject' : intake.Subject__c) + '"';
             String why = intake.Status__c == 'Error'
                 ? 'processing error'
+                : intake.Status__c == STATUS_ERP_FAILED
+                ? 'ERP rejected the order'
                 : (String.isBlank(intake.Exception_Reason__c) ? 'needs review' : intake.Exception_Reason__c.replace(';', ', '));
             cases.add(new Case(
                 Order_Intake__c = intake.Id,
@@ -94,7 +100,7 @@ public with sharing class OrderIntakeReviewCases {
                 Description = (nextStep(intake) + '\n\n' + OrderIntakeService.describe(intake)
                     + '\n\nEmail body:\n' + (intake.Email_Body__c == null ? '' : intake.Email_Body__c)).left(32000),
                 Origin = 'Email',
-                Priority = intake.Status__c == 'Error' ? 'High' : 'Medium',
+                Priority = intake.Status__c == 'Error' || intake.Status__c == STATUS_ERP_FAILED ? 'High' : 'Medium',
                 SuppliedEmail = intake.Source_Email_From__c,
                 AccountId = intake.Account__c != null ? intake.Account__c : (contact == null ? null : contact.AccountId),
                 ContactId = contact == null ? null : contact.Id
@@ -106,6 +112,11 @@ public with sharing class OrderIntakeReviewCases {
     private static String nextStep(Order_Intake__c intake) {
         if (intake.Status__c == 'Error') {
             return 'The order email could not be processed automatically. Check the processing error, then fix or re-send the email.';
+        }
+        if (intake.Status__c == STATUS_ERP_FAILED) {
+            return 'Order ' + intake.Order__r.OrderNumber + ' was created, but the ERP rejected it: ' + intake.ERP_Error__c
+                + '\nResolve the problem (for example a credit approval), then resend the order with the Order Intake Assistant '
+                + '(for example "Resend ' + intake.Name + ' to the ERP"); this case closes when the ERP confirms the order.';
         }
         return 'The order email could not be turned into an order automatically. Resolve the exceptions with the Order Intake Assistant '
             + '(for example "Show me ' + intake.Name + '"), then create the order; this case closes when the order is created.';

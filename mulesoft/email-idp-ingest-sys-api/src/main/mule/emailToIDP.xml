@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Order email ingest for the Agentforce Order Intake Assistant.
-    Gmail "Orders" label -> Order_Intake__c in Salesforce (PDF attached)
+    Gmail "Orders" label -> Order_Intake__c in Salesforce (every attachment stored as the original file)
       -> Agentforce prompt template classifies the email
-      -> purchase orders: Azure AI Document Intelligence reads the PDF, or, when there is no PDF, the
-         Extract_Order_From_Email prompt template reads the email body
+      -> purchase orders: the Extract_Order_From_Email prompt template always reads the email body; a PO
+         attachment is also read with Azure AI Document Intelligence (PDF/images: invoice model; Word/Excel:
+         layout model + Extract_Order_From_Document prompt template); both are merged (modules/Extractions.dwl)
       -> Salesforce builds lines, matches customer/products and sets exceptions (Apex REST /orderintake/v1/extraction);
          a clean PO becomes an order straight away, anything else gets a review Case
-      -> order created: confirmation reply to the customer (Gmail SMTP, same thread)
+      -> order created and order.autoSubmitErp: Salesforce sends it to the ERP (Apex REST /orderintake/v1/erp-submit)
+      -> order confirmed (by the ERP when auto-submitted): confirmation reply to the customer (Gmail SMTP, same thread)
       -> email moved to Processed / Needs-Review / Not-Order
   Salesforce and Azure calls are in salesforce-api.xml and azure-docintel.xml.
 -->
@@ -53,6 +55,35 @@
         </email:listener-imap>
 
         <set-variable variableName="emailId" value="#[output application/java --- attributes.id]" doc:name="IMAP email id"/>
+        <flow-ref name="read-order-email" doc:name="Email metadata and attachments"/>
+
+        <flow-ref name="salesforce-token" doc:name="Salesforce token"/>
+        <flow-ref name="salesforce-upsert-intake" doc:name="Upsert Order Intake"/>
+
+        <choice doc:name="New email?">
+            <when expression="#[output application/java --- not vars.intakeCreated]">
+                <logger level="WARN" message="#[output application/java --- 'Email ' ++ vars.email.messageKey ++ ' already has intake ' ++ vars.intakeId ++ ', skipping']" doc:name="Log duplicate"/>
+            </when>
+            <otherwise>
+                <flow-ref name="process-new-intake" doc:name="Process new intake"/>
+                <email:move-to-folder config-ref="Gmail_IMAP" sourceFolder="${email.folder}" targetFolder="#[vars.targetFolder]" emailId="#[vars.emailId]" doc:name="Re-label email"/>
+            </otherwise>
+        </choice>
+
+        <error-handler>
+            <on-error-continue type="ANY">
+                <logger level="ERROR" message="#[output application/java --- 'Order email failed (' ++ ((vars.email.messageKey) default 'unknown') ++ '): ' ++ (error.description default '')]" doc:name="Log error"/>
+                <choice doc:name="Intake exists?">
+                    <when expression="#[output application/java --- vars.intakeId != null and vars.sfAuth != null]">
+                        <flow-ref name="salesforce-mark-intake-error" doc:name="Mark intake Error"/>
+                    </when>
+                </choice>
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <!-- ============ Email metadata and attachments (the listener's payload: body + attachments map) ============ -->
+    <sub-flow name="read-order-email">
         <ee:transform doc:name="Email metadata and attachments">
             <ee:variables>
                 <ee:set-variable variableName="email"><![CDATA[%dw 2.0
@@ -84,48 +115,18 @@ var fromAddress = if (fromRaw contains "<") ((fromRaw match /.*<([^>]+)>.*/)[1] 
     receivedIso: receivedIso(dateHeaders[0]),
     body: if (sizeOf(bodyWithAttachments) > 32000) bodyWithAttachments[0 to 31999] else bodyWithAttachments
 }]]></ee:set-variable>
-                <!-- Every attachment is stored on the intake; the first PDF is the one Azure reads -->
-                <!-- fileBytes: Mule parses Excel, CSV and JSON attachments into data; store them as files again -->
+                <!-- Every attachment is stored on the intake as the original file; poDocument picks the one Azure reads.
+                     originalFile: DataWeave parses Excel, CSV and JSON attachments by their Content-Type; ^raw keeps the bytes -->
                 <ee:set-variable variableName="attachments"><![CDATA[%dw 2.0
-import fileBytes from modules::Documents
+import originalFile from modules::Documents
 output application/java
 ---
-((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: fileBytes(content, name) }))
+((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: originalFile(content, name as String) }))
     filter ((attachment) -> not isBlank(attachment.name))]]></ee:set-variable>
-                <ee:set-variable variableName="pdfs"><![CDATA[%dw 2.0
-import fileBytes from modules::Documents
-output application/java
----
-((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: fileBytes(content, name) }))
-    filter ((attachment) -> lower(attachment.name) endsWith ".pdf")]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <logger level="INFO" message="#[output application/java --- 'Order email from ' ++ vars.email.from ++ ': ' ++ vars.email.subject ++ ' (' ++ sizeOf(vars.attachments) ++ ' attachments, ' ++ sizeOf(vars.pdfs) ++ ' PDF)']" doc:name="Log email"/>
-
-        <flow-ref name="salesforce-token" doc:name="Salesforce token"/>
-        <flow-ref name="salesforce-upsert-intake" doc:name="Upsert Order Intake"/>
-
-        <choice doc:name="New email?">
-            <when expression="#[output application/java --- not vars.intakeCreated]">
-                <logger level="WARN" message="#[output application/java --- 'Email ' ++ vars.email.messageKey ++ ' already has intake ' ++ vars.intakeId ++ ', skipping']" doc:name="Log duplicate"/>
-            </when>
-            <otherwise>
-                <flow-ref name="process-new-intake" doc:name="Process new intake"/>
-                <email:move-to-folder config-ref="Gmail_IMAP" sourceFolder="${email.folder}" targetFolder="#[vars.targetFolder]" emailId="#[vars.emailId]" doc:name="Re-label email"/>
-            </otherwise>
-        </choice>
-
-        <error-handler>
-            <on-error-continue type="ANY">
-                <logger level="ERROR" message="#[output application/java --- 'Order email failed (' ++ ((vars.email.messageKey) default 'unknown') ++ '): ' ++ (error.description default '')]" doc:name="Log error"/>
-                <choice doc:name="Intake exists?">
-                    <when expression="#[output application/java --- vars.intakeId != null and vars.sfAuth != null]">
-                        <flow-ref name="salesforce-mark-intake-error" doc:name="Mark intake Error"/>
-                    </when>
-                </choice>
-            </on-error-continue>
-        </error-handler>
-    </flow>
+        <logger level="INFO" message="#[output application/java --- 'Order email from ' ++ vars.email.from ++ ': ' ++ vars.email.subject ++ ' (' ++ sizeOf(vars.attachments) ++ ' attachments' ++ (if (isEmpty(vars.attachments)) '' else ': ' ++ (vars.attachments map ((a) -> a.name) joinBy ', ')) ++ ')']" doc:name="Log email"/>
+    </sub-flow>
 
     <!-- ============ Attach files, classify, extract ============ -->
     <sub-flow name="process-new-intake">
@@ -135,27 +136,9 @@ output application/java
 
         <flow-ref name="salesforce-classify-intake" doc:name="Classify with Agentforce"/>
 
-        <set-variable variableName="pdf" doc:name="PO document"
-                      value="#[%dw 2.0&#10;import poDocument from modules::Documents&#10;output application/java&#10;---&#10;poDocument(vars.attachments)]"/>
         <choice doc:name="Route by classification">
-            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and vars.pdf.readMode == 'invoice']">
-                <set-variable variableName="extractionSource" doc:name="Source PDF or image"
-                              value="#[output application/java --- if (vars.pdf.contentType == 'application/pdf') 'PDF' else 'image attachment']"/>
-                <flow-ref name="extract-po-with-azure" doc:name="Extract PO with Azure Document Intelligence"/>
-                <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
-            </when>
-            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and vars.pdf.readMode == 'office']">
-                <!-- Word or Excel PO: Azure layout reads the file, the email-body prompt template reads the result -->
-                <set-variable variableName="extractionSource" value="#[output application/java --- 'attachment ' ++ vars.pdf.name]" doc:name="Source Office file"/>
-                <flow-ref name="read-office-with-azure" doc:name="Read Word/Excel with Azure layout"/>
-                <flow-ref name="salesforce-append-document-text" doc:name="Add document text to the intake"/>
-                <flow-ref name="salesforce-extract-from-body" doc:name="Extract PO with Agentforce"/>
-                <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
-            </when>
             <when expression="#[output application/java --- vars.classification.category == 'Purchase Order']">
-                <!-- No PDF: the order details are in the email body, so Azure is skipped -->
-                <set-variable variableName="extractionSource" value="email body" doc:name="Source email body"/>
-                <flow-ref name="salesforce-extract-from-body" doc:name="Extract PO from email body with Agentforce"/>
+                <flow-ref name="extract-purchase-order" doc:name="Read the email body and the PO attachment"/>
                 <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
             </when>
             <otherwise>
@@ -166,15 +149,85 @@ output application/java
         <logger level="INFO" message="#[output application/java --- 'Intake ' ++ vars.intakeId ++ ' classified ' ++ (vars.classification.category default '?') ++ ', email moved to ' ++ vars.targetFolder]" doc:name="Log result"/>
     </sub-flow>
 
-    <!-- ============ Salesforce decides: order created, or review case ============ -->
+    <!-- ============ Read the order: email body always, PO attachment when there is one, then merge ============ -->
+    <sub-flow name="extract-purchase-order">
+        <set-variable variableName="pdf" doc:name="PO document"
+                      value="#[%dw 2.0&#10;import poDocument from modules::Documents&#10;output application/java&#10;---&#10;poDocument(vars.attachments)]"/>
+        <try doc:name="Read the email body">
+            <flow-ref name="salesforce-extract-from-body" doc:name="Extract PO from the email body with Agentforce"/>
+            <set-variable variableName="bodyExtraction" value="#[vars.extraction]" doc:name="Body result"/>
+            <error-handler>
+                <!-- With an attachment the order can still be read; without one the email is an Error -->
+                <on-error-continue type="ANY" when="#[vars.pdf != null]">
+                    <logger level="WARN" message="#[output application/java --- 'Email body of intake ' ++ vars.intakeId ++ ' could not be read, using ' ++ vars.pdf.name ++ ' only: ' ++ (error.description default '')]" doc:name="Log body failure"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+        <choice doc:name="PO attachment?">
+            <when expression="#[output application/java --- vars.pdf.readMode == 'invoice']">
+                <flow-ref name="extract-po-with-azure" doc:name="Extract PDF or image with Azure Document Intelligence"/>
+                <set-variable variableName="attachmentExtraction" value="#[vars.extraction]" doc:name="Attachment result"/>
+            </when>
+            <when expression="#[output application/java --- vars.pdf.readMode == 'office']">
+                <!-- Word or Excel PO: Azure layout reads the file, the document prompt template reads its text -->
+                <flow-ref name="read-office-with-azure" doc:name="Read Word/Excel with Azure layout"/>
+                <flow-ref name="salesforce-extract-from-document" doc:name="Extract PO from the document text with Agentforce"/>
+                <set-variable variableName="attachmentExtraction" value="#[vars.extraction]" doc:name="Attachment result"/>
+            </when>
+        </choice>
+        <ee:transform doc:name="Merge body and attachment">
+            <ee:variables>
+                <ee:set-variable variableName="extraction"><![CDATA[%dw 2.0
+import mergeExtractions from modules::Extractions
+output application/java
+---
+mergeExtractions(vars.bodyExtraction, vars.attachmentExtraction, vars.pdf.name)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" message="#[output application/java --- 'Intake ' ++ vars.intakeId ++ ' read from ' ++ vars.extraction.source ++ ': PO ' ++ (vars.extraction.poNumber default '?') ++ ', ' ++ sizeOf(vars.extraction.lines default []) ++ ' lines' ++ (if (vars.extraction.error != null) '; ' ++ vars.extraction.error else '')]" doc:name="Log merged extraction"/>
+    </sub-flow>
+
+    <!-- ============ Salesforce decides: order created, or review case; clean orders go on to the ERP ============ -->
     <sub-flow name="complete-purchase-order">
         <flow-ref name="salesforce-submit-extraction" doc:name="Send extraction to Salesforce"/>
         <set-variable variableName="targetFolder" doc:name="Folder by result"
                       value="#[output application/java --- if (['Extracted', 'Order Created'] contains vars.extractionResult.status) p('email.folder.processed') else p('email.folder.review')]"/>
-        <choice doc:name="Order created?">
-            <when expression="#[output application/java --- vars.extractionResult.orderNumber != null and vars.extractionResult.replyBody != null]">
+        <set-variable variableName="reply" doc:name="Order created reply"
+                      value="#[output application/java --- if (vars.extractionResult.orderNumber != null and vars.extractionResult.replyBody != null) { subject: vars.extractionResult.replySubject, body: vars.extractionResult.replyBody, orderNumber: vars.extractionResult.orderNumber } else null]"/>
+        <choice doc:name="Send the order to the ERP?">
+            <when expression="#[output application/java --- vars.extractionResult.orderNumber != null and p('order.autoSubmitErp') == 'true']">
+                <flow-ref name="submit-order-to-erp" doc:name="Submit to ERP"/>
+            </when>
+        </choice>
+        <choice doc:name="Reply?">
+            <when expression="#[output application/java --- vars.reply != null]">
                 <flow-ref name="reply-order-created" doc:name="Reply to customer"/>
             </when>
+        </choice>
+    </sub-flow>
+
+    <!-- ERP Confirmed: the reply carries the ERP order number. ERP Failed (for example the Odoo credit limit) or no
+         answer: no reply; Salesforce opens a review Case for ERP Failed and the email goes to Needs-Review. -->
+    <sub-flow name="submit-order-to-erp">
+        <try doc:name="ERP submit">
+            <flow-ref name="salesforce-submit-erp" doc:name="Submit the order to the ERP through Salesforce"/>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="WARN" message="#[output application/java --- 'Order ' ++ vars.extractionResult.orderNumber ++ ' created, but the ERP submit failed: ' ++ (error.description default '')]" doc:name="Log ERP submit failure"/>
+                    <set-variable variableName="erpResult" value="#[output application/java --- { status: 'Order Created', message: error.description }]" doc:name="Not sent"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+        <choice doc:name="ERP confirmed?">
+            <when expression="#[output application/java --- vars.erpResult.status == 'ERP Confirmed']">
+                <set-variable variableName="reply" doc:name="Reply with the ERP order number"
+                              value="#[output application/java --- { subject: vars.erpResult.replySubject default vars.reply.subject, body: vars.erpResult.replyBody default vars.reply.body, orderNumber: vars.erpResult.erpOrderNumber }]"/>
+                <set-variable variableName="targetFolder" value="${email.folder.processed}" doc:name="Processed folder"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="reply" value="#[output application/java --- null]" doc:name="No reply"/>
+                <set-variable variableName="targetFolder" value="${email.folder.review}" doc:name="Needs-Review folder"/>
+            </otherwise>
         </choice>
     </sub-flow>
 
@@ -182,7 +235,7 @@ output application/java
     <sub-flow name="reply-order-created">
         <try doc:name="Send reply">
             <email:send config-ref="Gmail_SMTP" fromAddress="${email.username}" doc:name="Order created reply"
-                        subject="#[output application/java --- if (isEmpty(vars.email.subject)) vars.extractionResult.replySubject else if (lower(vars.email.subject) startsWith 're:') vars.email.subject else 'Re: ' ++ vars.email.subject]">
+                        subject="#[output application/java --- if (isEmpty(vars.email.subject)) vars.reply.subject else if (lower(vars.email.subject) startsWith 're:') vars.email.subject else 'Re: ' ++ vars.email.subject]">
                 <email:to-addresses>
                     <email:to-address value="#[vars.email.from]"/>
                 </email:to-addresses>
@@ -190,13 +243,13 @@ output application/java
 ---
 if ((vars.email.messageId default '') startsWith '<') { 'In-Reply-To': vars.email.messageId, 'References': vars.email.messageId } else {}]]]></email:headers>
                 <email:body contentType="text/plain">
-                    <email:content><![CDATA[#[vars.extractionResult.replyBody]]]></email:content>
+                    <email:content><![CDATA[#[vars.reply.body]]]></email:content>
                 </email:body>
             </email:send>
-            <logger level="INFO" message="#[output application/java --- 'Order ' ++ vars.extractionResult.orderNumber ++ ' confirmation sent to ' ++ vars.email.from]" doc:name="Log reply"/>
+            <logger level="INFO" message="#[output application/java --- 'Order ' ++ vars.reply.orderNumber ++ ' confirmation sent to ' ++ vars.email.from]" doc:name="Log reply"/>
             <error-handler>
                 <on-error-continue type="ANY">
-                    <logger level="WARN" message="#[output application/java --- 'Order ' ++ vars.extractionResult.orderNumber ++ ' created, but the reply to ' ++ vars.email.from ++ ' failed: ' ++ (error.description default '')]" doc:name="Log reply failure"/>
+                    <logger level="WARN" message="#[output application/java --- 'Order ' ++ vars.reply.orderNumber ++ ' created, but the reply to ' ++ vars.email.from ++ ' failed: ' ++ (error.description default '')]" doc:name="Log reply failure"/>
                 </on-error-continue>
             </error-handler>
         </try>

@@ -1,2 +1,4 @@
 *.pdf binary
 *.jar binary
+*.xlsx binary
+*.docx binary

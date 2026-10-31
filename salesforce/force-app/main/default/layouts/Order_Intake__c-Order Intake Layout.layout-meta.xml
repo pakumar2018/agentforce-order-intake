@@ -34,6 +34,7 @@
             </layoutColumns>
             <layoutColumns>
                 <layoutItems><behavior>Edit</behavior><field>Email_Body__c</field></layoutItems>
+                <layoutItems><behavior>Readonly</behavior><field>Document_Text__c</field></layoutItems>
             </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

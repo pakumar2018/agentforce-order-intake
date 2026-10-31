@@ -67,22 +67,33 @@ Set `email.username`, `sf.host` and `ocr.host` in `mule-app-dev.properties`. Dep
 Java 17) with the secure properties `email.password`, `sf.clientId`, `sf.clientSecret` and `ocr.apiKey`.
 Run only one copy at a time (Studio or CloudHub), since both would poll the same mailbox.
 
+Behaviour switches in `mule-app-dev.properties`:
+- `order.autoCreate=true`: a clean PO becomes a Salesforce order straight away.
+- `order.autoSubmitErp=true`: that order is sent to the ERP at once (Apex REST `/orderintake/v1/erp-submit`, which
+  calls the ERP API through the `Order_Intake_Mule` named credential as the MuleSoft run-as user). The customer reply
+  waits for the ERP order number; an ERP rejection gets no reply and a review Case. Set it to `false` to keep the
+  ERP step with the rep (the reply is then sent when the order is created).
+- `sf.extractTemplate` / `sf.extractDocumentTemplate`: the prompt templates for the email body and for the text of
+  an attached Word or Excel PO.
+
 ## Permissions summary
 | Permission set | Who | Grants |
 |---|---|---|
 | `Order_Intake_User` | Order desk reps | Order Intake objects and fields, Order Desk app, agent access, Apex action classes, ERP credential principal |
-| `Order_Intake_Integration` | MuleSoft run-as user | API access, Order Intake objects, extraction REST endpoint |
-| Prompt Template User | Reps and the MuleSoft user | Running `Classify_Order_Email` and `Extract_Order_From_Email` |
+| `Order_Intake_Integration` | MuleSoft run-as user | API access, Order Intake objects, extraction and ERP submit REST endpoints, ERP credential principal (`Order_Intake_Mule_Credential-ErpApiKey`) and read access to User External Credentials |
+| Prompt Template User | Reps and the MuleSoft user | Running `Classify_Order_Email`, `Extract_Order_From_Email` and `Extract_Order_From_Document` |
 
 ## Testing
 | Test | How | Expected |
 |---|---|---|
-| Apex (17 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
+| Apex (21 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
 | Testing Center (10 cases) | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10/10 output validation pass (off-topic cases have no topic by design) |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails classified correctly |
-| Email ingest MUnit (10 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
-| End to end | Email `PO-7795-Cobalt-clean.pdf` from the Cobalt alias | Intake *Order Created*, 3 matched lines, "order created" reply in the thread, email in **Processed** |
-| Order in the email body | No PDF; body "PO 7801: 40 x BLT-3001 at 22.00, 40 x NUT-3101 at 9.80" from the Cobalt alias | Intake *Order Created* (Extraction Source: email body), reply sent |
+| Email ingest MUnit (18 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
+| End to end | Email `PO-7795-Cobalt-clean.pdf` from the Cobalt alias | Intake *ERP Confirmed* with the Odoo order number, 3 matched lines, "order created" reply with that number in the thread, email in **Processed** |
+| Order in the email body | No PDF; body "PO 7801: 40 x BLT-3001 at 22.00, 40 x NUT-3101 at 9.80" from the Cobalt alias | Intake *ERP Confirmed* (Extraction Source: email body), reply sent |
+| Excel PO | `PO-7803-Cobalt.xlsx` attached from the Cobalt alias | The .xlsx is under Files on the intake; Extraction Source `attachment PO-7803-Cobalt.xlsx` (plus ` + email body` when the body filled a gap) |
+| ERP rejection | Email `PO-HP-2240-HarborPine-credit-limit.pdf` from the Harbor and Pine alias | Order created, then *ERP Failed* on the Odoo credit limit; no reply; High priority review Case; email in **Needs-Review** |
 | Exceptions | Email `PO-45188-Brightline-exceptions.pdf` from the Brightline alias | Intake *Needs Review*: Unknown SKU, Price Mismatch; a review Case is opened |
 | ERP | Agent: "Create the order for PO 7781", then "Send it to the ERP" | Odoo sales order number returned and visible in Odoo |
 | Credit limit | Agent: "Create the order for PO HP-2210", then "Send it to the ERP" | Rejected on the Odoo credit limit; agent offers Credit escalation |

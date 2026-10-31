@@ -23,23 +23,30 @@ supervisors as escalation teams.
 A fully automated **intake pipeline** plus an **Agentforce employee agent** for everything that needs a human.
 
 ```
-Customer emails a purchase order: a PDF, or the order typed in the email body
+Customer emails a purchase order: a PDF, image, Word or Excel file, or the order typed in the email body
   -> MuleSoft (CloudHub) reads the Gmail "Orders" label
-  -> Order Intake record in Salesforce, PDF attached
+  -> Order Intake record in Salesforce, every attachment stored as the original file
   -> Agentforce prompt template classifies the email: Purchase Order / Change Order / Inquiry / Other
      (it reads the subject, the plain-text body and the attachment file names)
-  -> PDF attached: Azure AI Document Intelligence reads the PDF (PO number, customer number, every line)
-     No PDF: the Agentforce prompt template Extract_Order_From_Email reads the order from the email body (Azure is skipped)
+  -> The Agentforce prompt template Extract_Order_From_Email always reads the email body. A PO attachment is read too:
+       PDF or image: Azure AI Document Intelligence, invoice model (PO number, customer number, every line)
+       Word or Excel: Azure layout model turns it into text and tables, which the prompt template
+                      Extract_Order_From_Document reads
+     MuleSoft merges the two: lines from the attachment (from the body when the attachment has none), header
+     fields from the attachment with the body filling gaps, the lower confidence when both were used; a PO number
+     that differs between body and attachment sends the intake to review
   -> Salesforce matches the customer (sender email, then customer number) and products, checks list prices,
      and sets exceptions:
-       clean PO      -> the Salesforce order is created straight away, and the customer gets an
-                        "order created" reply in the same email thread
+       clean PO      -> the Salesforce order is created straight away and sent to the ERP:
+                          ERP Confirmed -> the customer gets an "order created" reply with the ERP order
+                                           number in the same email thread
+                          ERP Failed    -> no reply; a review Case (for example the Odoo credit limit)
        anything off  -> Needs Review (Unknown SKU, Price Mismatch, Low Confidence, Unknown Customer, Missing Field)
                         and a review Case with the full details (also for processing errors);
-                        the Case closes automatically once the order is created
+                        the Case closes automatically once the order is created or the ERP confirms it
   -> The email moves to the Processed / Needs-Review / Not-Order label
   -> The Order Intake Assistant (Agentforce) helps the rep resolve exceptions, create the order,
-     send it to the ERP and confirm to the customer
+     send or resend it to the ERP and confirm to the customer
   -> MuleSoft ERP API (CloudHub) creates and confirms the sales order in Odoo; the customer credit limit is enforced
 ```
 
@@ -66,8 +73,9 @@ three subagents, and 10 invocable Apex actions.
 | Where | AI | Why |
 |---|---|---|
 | Email triage | Prompt Builder template `Classify_Order_Email` (Einstein Trust Layer with toxicity and safety scoring) | Separates POs from change orders, inquiries and noise before anything is extracted |
-| Order from the email body | Prompt Builder template `Extract_Order_From_Email` | Orders typed in the email (no PDF) are read without OCR; missing details lower the confidence and send the email to review |
-| Document understanding | Azure AI Document Intelligence, prebuilt invoice model (reads PO number, customer number and line items, with per-field confidence) | Turns PDFs, including scans, into structured lines; low confidence flags the intake for review |
+| Order from the email body | Prompt Builder template `Extract_Order_From_Email` | Every PO email's body is read; orders typed in the email need no OCR, and a body that only says "see attached" adds nothing; missing details lower the confidence and send the email to review |
+| Document understanding | Azure AI Document Intelligence, prebuilt invoice model (reads PO number, customer number and line items, with per-field confidence) | Turns PDFs and images, including scans, into structured lines; low confidence flags the intake for review |
+| Word and Excel POs | Azure layout model (text and tables as markdown) + Prompt Builder template `Extract_Order_From_Document` | The invoice model does not accept Office files; the layout text is stored on the intake (Document Text) and read separately from the email body |
 | Exception handling | Agentforce employee agent (Agent Script) | Conversational resolution with tools, routing and guardrails |
 | Product matching | Deterministic scoring in Apex (SKU and description tokens) | Explainable suggestions the rep can trust |
 
@@ -82,22 +90,25 @@ changing Salesforce or the agent.
 |---|---|
 | Salesforce data | `Order_Intake__c`, `Order_Intake_Line__c`, Order Desk app, list views, permission sets |
 | Agent | `Order_Intake_Assistant` Agent Script bundle (active version 2) with 10 invocable Apex actions sharing `OrderIntakeService` |
-| Prompts | `Classify_Order_Email` and `Extract_Order_From_Email` (Flex prompt templates) |
-| Review cases | `OrderIntakeTrigger` / `OrderIntakeReviewCases`: one Case per email that needs review or failed, closed when the order is created |
-| Integration endpoint | Apex REST `/orderintake/v1/extraction`: builds lines, matches customer and products, sets exceptions |
-| MuleSoft: email ingest | `email-idp-ingest-sys-api` on CloudHub: Gmail IMAP → Salesforce REST (client credentials) → Agentforce classification → Azure Document Intelligence → Salesforce |
+| Prompts | `Classify_Order_Email`, `Extract_Order_From_Email` and `Extract_Order_From_Document` (Flex prompt templates) |
+| Review cases | `OrderIntakeTrigger` / `OrderIntakeReviewCases`: one Case per email that needs review, failed or was rejected by the ERP, closed when the order is created or the ERP confirms it |
+| Integration endpoints | Apex REST `/orderintake/v1/extraction`: builds lines, matches customer and products, sets exceptions, creates the order for a clean PO. Apex REST `/orderintake/v1/erp-submit`: sends that order to the ERP in its own transaction (the callout cannot follow the order DML) with the agent's Submit Order To ERP logic, and returns the ERP result and the confirmation |
+| MuleSoft: email ingest | `email-idp-ingest-sys-api` on CloudHub: Gmail IMAP → Salesforce REST (client credentials) → Agentforce classification → email body (prompt template) + attachment (Azure Document Intelligence), merged in DataWeave → Salesforce → ERP submit → reply |
 | MuleSoft: ERP API | `order-intake-erp-api` on CloudHub: `POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`; OpenAPI spec included |
 | Salesforce → MuleSoft | Named Credential `Order_Intake_Mule` + External Credential sending an `X-Api-Key` header |
 | ERP | Odoo Online: customers with credit limits, products by SKU, confirmed sales orders |
 | Document AI | Azure AI Document Intelligence (free tier), prebuilt invoice model |
 
 ## 6. Quality, testing and security
-- **Apex:** 17 tests (all actions, the extraction endpoint, auto order creation, review cases, MuleSoft callouts with mocks), all passing.
+- **Apex:** 21 tests (all actions, the extraction endpoint, auto order creation, the ERP submit endpoint with
+  confirmed, rejected and resent orders, review cases, MuleSoft callouts with mocks), all passing.
 - **Testing Center:** 10-case functional suite (routing, action selection, response quality, off-topic refusal),
   10/10 passing on active version 2.
-- **MuleSoft:** the email ingest app builds with `mvn package` and has 10 MUnit tests, including the mapping of a real
-  Azure result for the PO 45188 demo PDF a PO whose rows Azure merged into one item (lines are read from the
-  detected table), and an order written in the email body. Both MuleSoft apps run on CloudHub.
+- **MuleSoft:** the email ingest app builds with `mvn package` and has 18 MUnit tests, including the mapping of a real
+  Azure result for the PO 45188 demo PDF, a PO whose rows Azure merged into one item (lines are read from the
+  detected table), an order written in the email body, an Excel attachment run through the listener's own transform
+  (the original file bytes are kept), the body + attachment merge (body only, attachment only, both agreeing, PO
+  mismatch), and the ERP submit with and without ERP confirmation. Both MuleSoft apps run on CloudHub.
 - **Live end-to-end tests:** a PO emailed from Gmail became a Salesforce intake with 3 lines read by Azure
   (91% confidence); the agent created the order and Odoo confirmed it (S00003); a 35,920 order was rejected on the
   Odoo customer credit limit and escalated to the Credit team.
