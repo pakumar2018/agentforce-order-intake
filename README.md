@@ -28,7 +28,7 @@ Customer email (Gmail)
 | [`mulesoft/order-intake-erp-api/`](mulesoft/order-intake-erp-api) | Mule 4 app: ERP API (`POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`) that creates and confirms Odoo sales orders |
 | [`odoo-setup/`](odoo-setup) | Odoo products and customers matching the Salesforce demo data |
 | [`demo-purchase-orders/`](demo-purchase-orders) | Four fictional PO PDFs (one per demo scenario) and their generator |
-| [`docs/`](docs) | [Project write-up](docs/PROJECT-WRITEUP.md), [setup guide](docs/SETUP-GUIDE.md), [CI/CD](docs/CI-CD.md), [agent spec](docs/Order_Intake_Assistant-AgentSpec.md), [test cases](docs/TEST-CASES.md), [demo script](docs/DEMO-SCRIPT.md) |
+| [`docs/`](docs) | [Architecture and demo stories](docs/ARCHITECTURE-AND-DEMO.md), [Project write-up](docs/PROJECT-WRITEUP.md), [setup guide](docs/SETUP-GUIDE.md), [CI/CD](docs/CI-CD.md), [agent spec](docs/Order_Intake_Assistant-AgentSpec.md), [test cases](docs/TEST-CASES.md), [demo script](docs/DEMO-SCRIPT.md) |
 
 ## Highlights
 - **Agentforce employee agent** in Agent Script with three subagents (intake review, ERP sync, customer reply),
