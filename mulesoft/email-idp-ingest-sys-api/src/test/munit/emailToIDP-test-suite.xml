@@ -110,6 +110,15 @@
         </munit:validation>
     </munit:test>
 
+    <munit:test name="excel-attachment-stays-a-file" description="An Excel attachment, which Mule parses into data, is still uploaded as the original file bytes">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import toBase64 from dw::core::Binaries&#10;import fileBytes from modules::Documents&#10;output application/java&#10;var content = readUrl('classpath://PO-7803-Cobalt.xlsx', 'application/xlsx')&#10;var file = { name: 'PO-7803-Cobalt.xlsx', content: fileBytes(content, 'PO-7803-Cobalt.xlsx') }&#10;---&#10;toBase64(file.content as Binary)]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload startsWith 'UEsDB']" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
     <munit:test name="message-key-is-url-safe" description="Gmail Message-IDs become a stable, URL-safe SHA-1 key">
         <munit:execution>
             <set-payload value="#[%dw 2.0&#10;import SHA1 from dw::Crypto&#10;output application/java&#10;---&#10;'gm-' ++ SHA1('&lt;CAOdUkAHw+YL/CtQ=@mail.gmail.com&gt;' as Binary)]"/>

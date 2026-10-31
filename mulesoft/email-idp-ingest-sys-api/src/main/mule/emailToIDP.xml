@@ -85,15 +85,18 @@ var fromAddress = if (fromRaw contains "<") ((fromRaw match /.*<([^>]+)>.*/)[1] 
     body: if (sizeOf(bodyWithAttachments) > 32000) bodyWithAttachments[0 to 31999] else bodyWithAttachments
 }]]></ee:set-variable>
                 <!-- Every attachment is stored on the intake; the first PDF is the one Azure reads -->
+                <!-- fileBytes: Mule parses Excel, CSV and JSON attachments into data; store them as files again -->
                 <ee:set-variable variableName="attachments"><![CDATA[%dw 2.0
+import fileBytes from modules::Documents
 output application/java
 ---
-((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content }))
+((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: fileBytes(content, name) }))
     filter ((attachment) -> not isBlank(attachment.name))]]></ee:set-variable>
                 <ee:set-variable variableName="pdfs"><![CDATA[%dw 2.0
+import fileBytes from modules::Documents
 output application/java
 ---
-((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content }))
+((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: fileBytes(content, name) }))
     filter ((attachment) -> lower(attachment.name) endsWith ".pdf")]]></ee:set-variable>
             </ee:variables>
         </ee:transform>

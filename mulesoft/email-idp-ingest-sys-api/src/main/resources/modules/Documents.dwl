@@ -41,3 +41,11 @@ fun poDocument(attachments) = do {
     ---
     if (isEmpty(sorted)) null else sorted[0] ++ { readMode: readMode(sorted[0].name), contentType: contentType(sorted[0].name) }
 }
+
+// Mule parses attachments whose type it understands (Excel, CSV, JSON, XML) into data. Turn those back into a
+// file so they can be stored in Salesforce and sent to Azure; files that arrive as bytes are kept as they are.
+var writerTypes = { xlsx: "application/xlsx", csv: "application/csv", json: "application/json", xml: "application/xml" }
+fun fileBytes(content, name) =
+    if (content is Binary) content
+    else if (content is String) (content as Binary {encoding: "UTF-8"})
+    else write(content, writerTypes[extension(name)] default "application/json") as Binary

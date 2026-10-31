@@ -95,7 +95,7 @@ changing Salesforce or the agent.
 - **Apex:** 17 tests (all actions, the extraction endpoint, auto order creation, review cases, MuleSoft callouts with mocks), all passing.
 - **Testing Center:** 10-case functional suite (routing, action selection, response quality, off-topic refusal),
   10/10 passing on active version 2.
-- **MuleSoft:** the email ingest app builds with `mvn package` and has 9 MUnit tests, including the mapping of a real
+- **MuleSoft:** the email ingest app builds with `mvn package` and has 10 MUnit tests, including the mapping of a real
   Azure result for the PO 45188 demo PDF a PO whose rows Azure merged into one item (lines are read from the
   detected table), and an order written in the email body. Both MuleSoft apps run on CloudHub.
 - **Live end-to-end tests:** a PO emailed from Gmail became a Salesforce intake with 3 lines read by Azure
