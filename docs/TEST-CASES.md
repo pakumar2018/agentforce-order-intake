@@ -44,7 +44,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 
 | Suite | How to run | Count | Expected |
 |---|---|---|---|
-| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 19 (actions, extraction endpoint, auto order creation with confirmation, review Case open and close) | All pass |
+| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 17 (actions, extraction endpoint, auto order creation with confirmation, review Case open and close) | All pass |
 | Agentforce Testing Center | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10 | 10/10 output validation pass |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails | PO, change order, inquiry and other classified correctly |
 | MUnit (email ingest) | `mvn clean package` | 7 | All pass: Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |

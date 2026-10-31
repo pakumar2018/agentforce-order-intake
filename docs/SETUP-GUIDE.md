@@ -77,7 +77,7 @@ Run only one copy at a time (Studio or CloudHub), since both would poll the same
 ## Testing
 | Test | How | Expected |
 |---|---|---|
-| Apex (19 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
+| Apex (17 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
 | Testing Center (10 cases) | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10/10 output validation pass (off-topic cases have no topic by design) |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails classified correctly |
 | Email ingest MUnit (7 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |

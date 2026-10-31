@@ -92,7 +92,7 @@ changing Salesforce or the agent.
 | Document AI | Azure AI Document Intelligence (free tier), prebuilt invoice model |
 
 ## 6. Quality, testing and security
-- **Apex:** 19 tests (all actions, the extraction endpoint, auto order creation, review cases, MuleSoft callouts with mocks), all passing.
+- **Apex:** 17 tests (all actions, the extraction endpoint, auto order creation, review cases, MuleSoft callouts with mocks), all passing.
 - **Testing Center:** 10-case functional suite (routing, action selection, response quality, off-topic refusal),
   10/10 passing on active version 2.
 - **MuleSoft:** the email ingest app builds with `mvn package` and has 7 MUnit tests, including the mapping of a real
