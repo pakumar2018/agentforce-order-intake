@@ -6,11 +6,12 @@ any repository.
 ## Components and repositories
 | Component | Where | Purpose |
 |---|---|---|
-| `order-intake-sf` | Salesforce DX project | Objects, agent (Agent Script), Apex actions, prompt template, credentials, permission sets, seed scripts, Testing Center suite |
-| `order-intake-erp-api` | MuleSoft project ([GitHub](https://github.com/pakumar2018/order-intake-erp-api)) | ERP API on CloudHub: Salesforce order → Odoo sales order |
-| `email-idp-ingest-sys-api` | MuleSoft project | Email ingest on CloudHub: Gmail → Salesforce → Agentforce classification → Azure Document Intelligence → Salesforce |
-| `odoo-setup` | CSV files | Odoo products and customers matching the Salesforce demo data |
-| `demo-purchase-orders` | PDFs and generator | Four fictional purchase orders, one per demo scenario |
+| `salesforce/` | Salesforce DX project | Objects, agent (Agent Script), Apex actions and REST endpoints, prompt templates, triggers, credentials, permission sets, seed scripts, Testing Center suite |
+| `mulesoft/order-intake-erp-api/` | MuleSoft project | ERP API on CloudHub: Salesforce order → Odoo sales order |
+| `mulesoft/email-idp-ingest-sys-api/` | MuleSoft project | Email ingest on CloudHub: Gmail → Salesforce → Agentforce classification → email body + attachment (prompt templates, Azure Document Intelligence) → Salesforce → ERP → reply |
+| `odoo-setup/` | CSV files | Odoo products and customers matching the Salesforce demo data |
+| `demo-purchase-orders/` | Files and generator | Fictional purchase orders: demo pair PO 7820 and PO 45220, test PDFs, Excel and Word samples |
+| `.github/workflows/` | GitHub Actions | Test and deploy on every push to `main` (see `docs/CI-CD.md`) |
 
 ## Prerequisites
 - Salesforce **Developer Edition with Agentforce and Data Cloud**; Salesforce CLI 2.x

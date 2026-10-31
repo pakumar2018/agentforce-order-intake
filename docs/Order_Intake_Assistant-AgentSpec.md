@@ -3,8 +3,9 @@
 ## Purpose and scope
 An Agentforce Employee agent for order desk reps at a B2B industrial supplies distributor.
 Purchase orders arrive by email (Gmail). MuleSoft reads each email, the `Classify_Order_Email`
-prompt template classifies it, Azure AI Document Intelligence extracts the PO lines, and the result is
-stored as an `Order_Intake__c` record with `Order_Intake_Line__c` lines. Clean POs flow straight through. The agent
+prompt template classifies it, the email body and the attached PO are read (prompt templates and Azure AI
+Document Intelligence), and the result is stored as an `Order_Intake__c` record with `Order_Intake_Line__c` lines.
+Clean POs flow straight through to a confirmed Odoo order. The agent
 handles everything that needs a person: finding intakes, resolving exceptions, creating the order,
 syncing with the ERP, and replying to the customer.
 
@@ -17,7 +18,8 @@ Out of scope: general questions, pricing policy decisions (escalated to Pricing)
 - Rep permissions: `Order_Intake_User` permission set (objects, fields, app, Apex class access, agent access,
   and access to the `Order_Intake_Mule_Credential` principal used for ERP calls)
 - Integration permissions: `Order_Intake_Integration` permission set for the MuleSoft run-as user
-  (API access and the `/orderintake/v1/extraction` REST endpoint)
+  (API access, the `/orderintake/v1/extraction` and `/orderintake/v1/erp-submit` REST endpoints, and the
+  ERP credential principal)
 - Org: Agentforce Developer Edition, standard Orders as the stand-in for Revenue Cloud Advanced
 
 ## Behavioral intent
@@ -84,13 +86,15 @@ None. Intake references travel in conversation history; every consequential rule
 Apex action that owns it.
 
 ## How intakes arrive
-`email-idp-ingest-sys-api` (MuleSoft) creates each intake from Gmail, attaches the PDF, calls
-`Classify_Order_Email`, sends purchase-order PDFs to Azure AI Document Intelligence (or, when there is no
-PDF, reads the order from the email body with the `Extract_Order_From_Email` prompt template), and posts the
-extraction to the Apex REST endpoint `/orderintake/v1/extraction` (`OrderIntakeExtractionApi`).
-A clean intake becomes a Salesforce order straight away and MuleSoft replies "order created" to the customer
-in the same thread. Every intake that is Needs Review or Error gets one review Case (`OrderIntakeTrigger`),
-shown by `get_order_intake_details` and closed automatically when the rep creates the order. That
+`email-idp-ingest-sys-api` (MuleSoft) creates each intake from Gmail, stores every attachment, calls
+`Classify_Order_Email`, reads the email body with `Extract_Order_From_Email` and the PO attachment with Azure
+AI Document Intelligence (PDF and images: invoice model; Word and Excel: layout model, then
+`Extract_Order_From_Document`), merges the two, and posts the result to the Apex REST endpoint
+`/orderintake/v1/extraction` (`OrderIntakeExtractionApi`). A clean intake becomes a Salesforce order straight
+away; MuleSoft then calls `/orderintake/v1/erp-submit` and replies to the customer with the Odoo order number.
+Every intake that is Needs Review, Error or ERP Failed gets one review Case (`OrderIntakeTrigger`), shown by
+`get_order_intake_details` and closed automatically when the order is created or the ERP confirms it. An order
+the rep creates with the agent goes to the ERP on its own (`OrderIntakeErpAutoSubmit`). The extraction
 endpoint applies the same matching and exception rules as the agent (`OrderIntakeService`): customer by
 sender email then customer number, products by SKU, a 5% price tolerance, and a Low Confidence flag below 80%.
 
@@ -105,5 +109,7 @@ Seeded by `scripts/apex/seed-demo-intakes.apex`:
 | PO SMW-5530 (Summit) | Low-confidence scan with an unknown filter SKU |
 | Pump availability (Summit) | Inquiry, classified Not Order |
 
-Live by email (PDFs in `demo-purchase-orders/`): PO 45188 (Brightline, exceptions), PO 7795 (Cobalt, clean),
-PO HP-2240 (Harbor and Pine, credit limit), PO SMW-5541 (Summit, faded scan).
+Live by email (files in `demo-purchase-orders/`): the demo pair PO 7820 (Cobalt, clean, straight to Odoo) and
+PO 45220 (Brightline, unknown SKU and price mismatch, resolved with the agent); test files PO 45188 (Brightline,
+exceptions), PO 7795 (Cobalt, clean), PO HP-2240 (Harbor and Pine, credit limit), PO SMW-5541 (Summit, faded scan),
+and the Excel and Word samples PO 7803 and PO 7804 (Cobalt).

@@ -2,8 +2,9 @@
 
 **Hackathon theme:** 1, Agentforce Build: From Use Case to Customer Demo
 **Products:** Agentforce (Agent Script, Prompt Builder, Testing Center, Einstein Trust Layer), Sales Cloud Orders
-(Revenue Cloud Advanced swap point), MuleSoft Anypoint (Email and HTTP connectors, CloudHub, MUnit),
-Azure AI Document Intelligence, Odoo ERP, Gmail
+and Cases (Revenue Cloud Advanced swap point), MuleSoft Anypoint (Email and HTTP connectors, CloudHub 2.0, MUnit),
+Azure AI Document Intelligence, Odoo ERP, Gmail, GitHub Actions
+**Code:** https://github.com/pakumar2018/agentforce-order-intake (public; no credentials, fictional data only)
 
 ## 1. The business problem
 B2B distributors and manufacturers still receive most purchase orders as **PDF attachments in email**.
@@ -45,10 +46,17 @@ Customer emails a purchase order: a PDF, image, Word or Excel file, or the order
                         and a review Case with the full details (also for processing errors);
                         the Case closes automatically once the order is created or the ERP confirms it
   -> The email moves to the Processed / Needs-Review / Not-Order label
-  -> The Order Intake Assistant (Agentforce) helps the rep resolve exceptions, create the order,
-     create the order (which then goes to the ERP on its own), resend failed ones and confirm to the customer
+  -> The Order Intake Assistant (Agentforce) helps the rep resolve exceptions and create the order (which then
+     goes to the ERP on its own), resend failed ones and confirm to the customer
   -> MuleSoft ERP API (CloudHub) creates and confirms the sales order in Odoo; the customer credit limit is enforced
 ```
+
+### Demo story
+Two fictional customers email PDF purchase orders. **Cobalt Fabrication, PO 7820** (4 lines, all matching) goes
+from email to a confirmed Odoo order with nobody touching it, and Cobalt gets a reply with the ERP order number.
+**Brightline Manufacturing, PO 45220** has an unknown part number and a valve price about 15% under list, so it
+goes to review with a Case. **Sam**, an order desk rep, asks the agent what needs attention, picks the suggested
+bearing, accepts the quoted price and creates the order; it goes to Odoo on its own and the Case closes.
 
 ## 3. The Order Intake Assistant (Agentforce employee agent)
 Built in **Agent Script** (`aiAuthoringBundles/Order_Intake_Assistant`, active version 2) with a router and
@@ -98,7 +106,8 @@ changing Salesforce or the agent.
 | MuleSoft: ERP API | `order-intake-erp-api` on CloudHub: `POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`; OpenAPI spec included |
 | Salesforce → MuleSoft | Named Credential `Order_Intake_Mule` + External Credential sending an `X-Api-Key` header |
 | ERP | Odoo Online: customers with credit limits, products by SKU, confirmed sales orders |
-| Document AI | Azure AI Document Intelligence (free tier), prebuilt invoice model |
+| Document AI | Azure AI Document Intelligence (free tier): prebuilt invoice model for PDFs and images, layout model for Word and Excel |
+| Delivery | GitHub Actions: every push to `main` runs the MUnit and Apex tests and deploys both MuleSoft apps to CloudHub 2.0 and the Salesforce metadata |
 
 ## 6. Quality, testing and security
 - **Apex:** 25 tests (all actions, the extraction endpoint, auto order creation, the automatic ERP submit of reviewed orders, the ERP submit endpoint with
@@ -112,24 +121,34 @@ changing Salesforce or the agent.
   mismatch), and the ERP submit with and without ERP confirmation. Both MuleSoft apps run on CloudHub.
 - **Live end-to-end tests:** a PO emailed from Gmail became a Salesforce intake with 3 lines read by Azure
   (91% confidence); the agent created the order and Odoo confirmed it (S00003); a 35,920 order was rejected on the
-  Odoo customer credit limit and escalated to the Credit team.
+  Odoo customer credit limit and escalated to the Credit team; an order typed in the email body (PO 7801) and a
+  Word PO (PO 7804) each became a Salesforce order automatically with all lines matched. The latest additions
+  (body + attachment merge, original Excel files, automatic ERP submit) are covered by the automated tests above
+  and are what the demo recording (PO 7820 and PO 45220) exercises.
 - **Defects found by testing and fixed:** quantities rendered as `2E+2` and misread by the model; a double
   confirmation; DataWeave media-type errors; Gmail Message-IDs breaking the Salesforce URL; sender display names
-  rejected by the Email field; an empty-body PO email classified as Other (the classifier now sees attachment names).
+  rejected by the Email field; an empty-body PO email classified as Other (the classifier now sees attachment names);
+  Azure merging several PO rows into one item (lines are now read from the detected table); Excel attachments
+  re-written by DataWeave (the original bytes are now kept); Received At off by the time-zone offset (now read
+  from the email's Date header).
 - **Security:** no credentials in source code (CloudHub secure properties, Salesforce Named and External
   Credentials); OAuth 2.0 client credentials for MuleSoft → Salesforce; API key on the ERP API; least-privilege
   permission sets; TLS validation on Gmail; Einstein Trust Layer on all generative calls; fictional data only.
 
 ## 7. Business value (illustrative assumptions)
 Assumptions: 2,000 PO emails a month, 12 minutes of manual entry each, 70% straight-through after automation,
-4 minutes per exception with the agent, loaded cost of 35 USD per hour.
+4 minutes per exception with the agent, loaded cost of 40 USD per hour.
 
 | | Before | After |
 |---|---|---|
+| Orders with zero touches | none | **about 70%** |
 | Order-desk time | 400 hours a month | about 40 hours a month |
-| Time saved | | **about 360 hours a month (4,300 hours a year), roughly 150,000 USD a year** |
-| Order cycle time | hours to days | minutes for clean POs |
+| Time saved | | **about 360 hours a month, about 90% of order-entry time (roughly 2 FTE), about 172,800 USD a year** |
+| Email to ERP for a clean order | hours to days | **under a minute** |
 | Keying errors | frequent | product and price checks before the order exists |
+
+The pipeline saves about 280 hours (clean orders need no one); the agent saves about 80 hours more (each review
+drops from 12 to about 4 minutes).
 
 Further value: faster cash (orders reach the ERP sooner), credit risk caught before fulfilment, and instant,
 accurate confirmations for customers.
@@ -150,6 +169,21 @@ accurate confirmations for customers.
   email and the customer number on the PO, with the name only as a fallback. A custom-trained Azure or IDP
   purchase-order model would remove this.
 - The ERP API has no automated tests in its repository; it was verified with live calls and agent tests against Odoo.
-- Demo accounts (Odoo trial, Azure free tier, Gmail) are fictional and short-lived.
-- Next: change-order handling, Slack alerts for Needs Review intakes, an Agentforce Service Agent so customers
-  can ask "where is my order?", and a Claude-based document-analysis agent over MCP for complex POs (Theme 4).
+- Change orders and inquiries are classified and filed as Not Order; they are not processed further yet.
+- Every email to the orders mailbox is picked up, including system notifications; they are classified as Not Order.
+- One attachment per email is read as the PO (PDF first, then images, then Word or Excel); other files are stored only.
+- Demo accounts (Odoo trial, Azure free tier, Gmail) are fictional and short-lived; the business-value figures are
+  planning assumptions, not measured results.
+- Next: change-order handling, order creation in Revenue Cloud Advanced, a custom-trained PO model, Slack alerts
+  for Needs Review intakes, and an Agentforce Service Agent so customers can ask "where is my order?".
+
+## 10. Submission contents and access
+| Requirement | Where |
+|---|---|
+| Demo video (2–3 minutes) | Shared through OneDrive / Microsoft Stream |
+| Presentation | `Email-to-Order Agent.pptx` (target user and problem, agent capabilities and storyboard, scenario, AI usage, impact and reuse) |
+| Agentforce agent and Salesforce environment | Agentforce Developer Edition org with the active Order Intake Assistant; walkthrough or demo login on request, no credentials in any document. Agent spec: `docs/Order_Intake_Assistant-AgentSpec.md` |
+| Agent Script, subagents, actions, prompts, automation | `salesforce/force-app/main/default/`: `aiAuthoringBundles` (Agent Script), `classes` (Apex actions and REST endpoints), `genAiPromptTemplates` (3 prompt templates), `triggers` (review Cases, automatic ERP submit) |
+| Demo data, setup instructions, code | `salesforce/scripts/apex` (seed and reset), `demo-purchase-orders/`, `odoo-setup/`, `docs/SETUP-GUIDE.md`, `docs/DEMO-SCRIPT.md`, the GitHub repository |
+| Architecture, dependencies, permissions, testing | This write-up (sections 2, 5, 6), `docs/SETUP-GUIDE.md` (prerequisites and permission sets), `docs/TEST-CASES.md`, `docs/CI-CD.md`, `salesforce/tests/` (Testing Center suite) |
+| Known limitations and future improvements | Section 9 |

@@ -1,45 +1,51 @@
-# Demo script: Order Intake Assistant (target 2:45)
+# Demo script: one clean order, one order Sam reviews (target 3:00)
+
+Run from the `salesforce` folder of the repository. Demo files are in `demo-purchase-orders/`.
+
+Story: two customers email purchase orders as PDFs. Cobalt's PO 7820 goes from email to ERP with no one
+touching it. Brightline's PO 45220 has two problems; Sam, an order desk rep, fixes them with the Order Intake
+Assistant, the order goes to the ERP and the review Case closes.
 
 ## Before you record
-1. **Reset Salesforce** (removes seeded and email-created intakes with their orders, then reseeds):
+1. **Reset Salesforce:**
    `sf apex run --file scripts/apex/reset-demo-intakes.apex --target-org orderintake`
    `sf apex run --file scripts/apex/seed-demo-intakes.apex --target-org orderintake`
 2. **Reset Odoo:** Sales → Orders → cancel and delete earlier test orders.
-3. **Reset Gmail (orders mailbox):** no unread emails left under the **Orders** label.
-4. Check both MuleSoft apps show **Running** in Runtime Manager (`email-idp-ingest-sys-api`, `order-intake-erp-api`),
-   and that no local copy is running in Anypoint Studio.
-5. Have these tabs open, logged in, zoomed to 110–125%: Gmail (dealer: demo.dealer.po), Gmail (orders:
-   demo.orders.po), Salesforce Order Desk app, Odoo Sales, Runtime Manager logs (optional).
-6. Prepare the email in the dealer Gmail (do not send yet): **From** `Maya Chen – Brightline Manufacturing`,
-   **To** `demo.orders.po@gmail.com`, **Subject** `PO 45188 - widgets, bearings and valves`, attach
-   `PO-45188-Brightline-exceptions.pdf`.
-7. Close notifications, hide bookmarks, use a clean browser profile.
-8. Record with **Microsoft Clipchamp**, **PowerPoint (Insert → Screen Recording)** or **OBS Studio** at 1920×1080.
-   Record each scene as its own clip; you can re-take one scene without redoing the whole video.
+3. **Orders mailbox (demo.orders.po):** no unread emails under **Orders**.
+4. **Runtime Manager:** `email-idp-ingest-sys-api` and `order-intake-erp-api` both **Running**; nothing running in Studio.
+5. **Dealer mailbox (demo.dealer.po):** two drafts ready (do not send yet):
+   - From `+cobalt`, subject `Purchase order 7820`, attachment `PO-7820-Cobalt-clean.pdf`
+   - From `+brightline`, subject `PO 45220 - widgets, bearings and valves`, attachment `PO-45220-Brightline-review.pdf`
+6. Tabs open and logged in, zoom 110–125%: dealer Gmail, orders Gmail, Salesforce **Order Desk** app (logged in as
+   Sam), Odoo Sales. Close notifications, hide bookmarks.
+7. Record each scene as its own clip (Clipchamp, PowerPoint screen recording or OBS, 1920×1080).
+
+Tip: send both drafts at the start of scene 2 so MuleSoft has processed both by scene 4 (about a minute).
 
 ## Scenes
 
 | # | Time | On screen | Say (voice-over) |
 |---|---|---|---|
-| 1 | 0:00–0:15 | Title slide, then the Gmail inbox full of PO emails | "Order desks still get most B2B orders as PDF emails. Every one is opened, read and re-keyed by hand. It takes minutes per order, and every typo becomes a shipping or invoicing problem." |
-| 2 | 0:15–0:35 | Dealer Gmail: send the prepared PO 45188 email. Orders Gmail: the email arrives under **Orders**, then moves to **Needs-Review** | "Here a customer, Brightline Manufacturing, emails a purchase order. MuleSoft picks it up from the order mailbox within a minute, creates an Order Intake in Salesforce and attaches the PDF." |
-| 3 | 0:35–0:55 | Salesforce Order Desk → Order Intakes → the new intake: Classification *Purchase Order*, extraction confidence, the three lines, status *Needs Review* | "Agentforce classifies the email as a purchase order, Azure Document Intelligence reads every line from the PDF, and Salesforce checks each product and price. Clean orders go straight through. This one has two problems." |
-| 4 | 0:55–1:20 | Agentforce panel: **What needs my attention today?** then **Show me PO 45188** | "The order desk rep simply asks the Order Intake Assistant. It lists what needs attention and explains PO 45188: line 2 has an unknown part number, and line 3 is 17 percent below list price." |
-| 5 | 1:20–1:45 | **What products could line 2 be?** → **Use BRG-2001 for line 2** → **Accept the customer's PO price for line 3** | "For the unknown SKU it suggests the closest catalog products, and the rep picks one. For the price, the rep accepts the quoted price. The agent never guesses; the rep stays in control." |
-| 6 | 1:45–2:05 | **Create the order** → confirm → **What's the ERP status?** Switch to Odoo → Sales → the new confirmed order with customer reference 45188 | "With the exceptions cleared, the agent creates the order, and Salesforce sends it to the ERP through MuleSoft on its own. Seconds later the confirmed sales order is in Odoo." |
-| 7 | 2:05–2:25 | **Create the order for PO HP-2210** → confirm → **What's the ERP status?** → rejection → **Escalate it to the Credit team** | "When the ERP says no, for example this 36,000 dollar order over the customer's credit limit in Odoo, the agent explains why and hands it to the credit team in one sentence." |
-| 8 | 2:25–2:45 | **Draft a confirmation email for PO 45188**, show the exact lines. End on a value slide | "Finally it drafts the customer confirmation straight from the order, so every quantity and price is exact. Email to ERP in minutes instead of hours: about 360 hours a month back for a typical order desk." |
+| 1 | 0:00–0:15 | Title slide, then the dealer Gmail with the two drafts | "B2B customers still send most orders as PDF emails. Someone opens each one, reads it and types it into the ERP. That takes minutes per order, and every typo becomes a shipping or invoicing problem." |
+| 2 | 0:15–0:30 | Dealer Gmail: open and send the Cobalt draft, then the Brightline draft | "Two customers send purchase orders right now: Cobalt Fabrication, PO 7820, and Brightline Manufacturing, PO 45220. Both are PDFs." |
+| 3 | 0:30–0:50 | Orders Gmail: both emails arrive under **Orders**, then move: 7820 to **Processed**, 45220 to **Needs-Review** | "MuleSoft on CloudHub watches the order mailbox. For each email it creates an Order Intake in Salesforce, stores the PDF, and asks an Agentforce prompt template whether this is a purchase order. It reads the email text with a second prompt template and sends the PDF to Azure Document Intelligence, then combines the two." |
+| 4 | 0:50–1:15 | Salesforce → Order Intakes → PO 7820: Classification *Purchase Order*, Extraction Source *attachment PO-7820-Cobalt-clean.pdf*, 4 Matched lines, status **ERP Confirmed**, ERP Order Number S000xx. Then Odoo → Sales → order with customer reference 7820 | "Cobalt's order is clean. Customer and all four products match the catalog and price book, so Salesforce creates the order and sends it to Odoo through the MuleSoft ERP API. It's already confirmed in Odoo, and no one touched it." |
+| 5 | 1:15–1:25 | Dealer Gmail: the reply "Order confirmation - PO 7820 (S000xx)" in the Cobalt thread | "Cobalt gets a confirmation in the same thread, with the ERP order number and the exact lines." |
+| 6 | 1:25–1:40 | Salesforce → PO 45220: status **Needs Review**, exceptions *Unknown SKU; Price Mismatch*, the three lines; the related review **Case** with the PDF | "Brightline's order isn't clean. Salesforce flags it for review and opens a Case with the email, the PDF and every line. No reply goes out, because a person needs to look at it." |
+| 7 | 1:40–2:00 | Sam opens the Agentforce panel: **What orders need my attention today?** then **Show me PO 45220** | "Sam from the order desk just asks the Order Intake Assistant. It lists what needs attention today and explains PO 45220: line 2 has a part number we don't recognise, and line 3 is about 15 percent below list price." |
+| 8 | 2:00–2:20 | **What products could line 2 be?** → **Use BRG-2002 for line 2** → **Accept the customer's price for line 3, it was quoted** | "For the unknown part it suggests the closest catalog products, and Sam picks the 6205 bearing. The valve price was quoted to the customer, so Sam accepts it. The agent never guesses; Sam stays in control." |
+| 9 | 2:20–2:40 | **Create the order** → confirm. Show the Case: **Closed**. Then **What's the ERP status of PO 45220?** → ERP Confirmed with the Odoo order number | "With the problems cleared, Sam creates the order. The review Case closes on its own, and the order goes straight to the ERP. Sam doesn't have to ask: it's already back with its Odoo number." |
+| 10 | 2:40–3:00 | Odoo → Sales: confirmed orders 7820 and 45220. Optional: **Draft a confirmation email for PO 45220**. End on a value slide | "Two orders from email to ERP: one with nobody involved, one in under a minute of Sam's time. That's hours a day back for a typical order desk, and no re-typing." |
 
-## Tips
-- Speak slower than feels natural; 140–150 words per minute fits the timing above.
-- Pause one second after each agent answer so viewers can read it.
-- If an agent answer is long, zoom in (Clipchamp: zoom effect) rather than scrolling.
-- Add on-screen captions for the key moments: "Classified by Agentforce", "Read by Azure Document Intelligence",
-  "Human confirms", "Order in Odoo".
-- Keep the final cut between 2:30 and 3:00.
+## Words to put on screen
+- Scene 3: "MuleSoft reads the mailbox" · "Classified by Agentforce" · "Read by Azure Document Intelligence"
+- Scene 4: "Matched in Salesforce" · "Sent to Odoo automatically"
+- Scene 6: "Unknown SKU" · "Price Mismatch" · "Review Case opened"
+- Scene 9: "Sam confirms" · "Case closed" · "Order in Odoo"
 
-## If something goes wrong while recording
-- Email not picked up after 2 minutes: check it is **unread** and has the **Orders** label.
-- Intake shows *Error*: open it and read **Processing Error**; Runtime Manager logs show the detail.
-- Agent says the ERP rejected an order with "Missing or invalid X-Api-Key": the secret in Salesforce
-  (External Credential *Order Intake Mule Credential*, parameter `ApiKey`) no longer matches CloudHub `api.key`.
+## If something goes wrong
+- An email isn't picked up after 2 minutes: in the orders mailbox it must be **unread** and labelled **Orders**.
+- An intake shows *Error*: open it and read **Processing Error**; Runtime Manager logs show the detail.
+- PO 7820 shows **ERP Failed**: read **ERP Error** on the intake. "Missing or invalid X-Api-Key" means the
+  External Credential `ApiKey` in Salesforce no longer matches `api.key` in CloudHub.
+- The agent suggests a different product for line 2: say "Use BRG-2002 for line 2" anyway.

@@ -19,8 +19,8 @@ Customer email (Gmail)
                            ERP Confirmed -> "order created" reply with the ERP order number in the customer's thread
                            ERP Failed    -> no reply, review Case (for example the Odoo credit limit)
             not clean -> Needs Review + review Case with all details
-  -> Order Intake Assistant (Agentforce employee agent) resolves exceptions, creates the order,
-     creates the order, which then goes to the ERP on its own, and drafts the customer confirmation
+  -> Order Intake Assistant (Agentforce employee agent) resolves exceptions and creates the order, which then
+     goes to the ERP on its own, and drafts the customer confirmation
   -> MuleSoft ERP API (CloudHub) -> Odoo sales order, with the customer credit limit enforced
 ```
 
@@ -31,7 +31,7 @@ Customer email (Gmail)
 | [`mulesoft/email-idp-ingest-sys-api/`](mulesoft/email-idp-ingest-sys-api) | Mule 4 app: Gmail IMAP → Salesforce → classification → email-body extraction plus Azure Document Intelligence for the attachment, merged → Salesforce → ERP submit → reply by SMTP |
 | [`mulesoft/order-intake-erp-api/`](mulesoft/order-intake-erp-api) | Mule 4 app: ERP API (`POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`) that creates and confirms Odoo sales orders |
 | [`odoo-setup/`](odoo-setup) | Odoo products and customers matching the Salesforce demo data |
-| [`demo-purchase-orders/`](demo-purchase-orders) | Four fictional PO PDFs (one per demo scenario) and their generator |
+| [`demo-purchase-orders/`](demo-purchase-orders) | Fictional purchase orders: the demo pair (PO 7820 clean, PO 45220 for review), the test PDFs, and Excel and Word samples |
 | [`docs/`](docs) | [Project write-up](docs/PROJECT-WRITEUP.md), [setup guide](docs/SETUP-GUIDE.md), [CI/CD](docs/CI-CD.md), [agent spec](docs/Order_Intake_Assistant-AgentSpec.md), [test cases](docs/TEST-CASES.md), [demo script](docs/DEMO-SCRIPT.md) |
 
 ## Highlights
