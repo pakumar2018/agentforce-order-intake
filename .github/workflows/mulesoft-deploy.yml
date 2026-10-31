@@ -61,7 +61,11 @@ jobs:
           sed -i "0,/<groupId>com.osf.demo<\/groupId>/s//<groupId>${ANYPOINT_ORG_ID}<\/groupId>/" pom.xml
           mvn -B -q versions:set -DnewVersion=1.${{ github.run_number }}.${{ github.run_attempt }} -DgenerateBackupPoms=false
 
-      - name: Secure properties for ${{ inputs.app }}
+      # CloudHub 2.0 deploys from Exchange: "mvn deploy" publishes the app, "mvn deploy -DmuleDeploy" deploys it
+      - name: Test and publish to Exchange
+        run: mvn -B deploy -Danypoint.orgId="$ANYPOINT_ORG_ID"
+
+      - name: Deploy to CloudHub 2.0
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
@@ -70,29 +74,26 @@ jobs:
           ODOO_API_KEY: ${{ secrets.ODOO_API_KEY }}
           ERP_API_KEY: ${{ secrets.ERP_API_KEY }}
         run: |
+          # Secure properties of this app: Mule property name = GitHub secret name
           case "${{ inputs.app }}" in
-            email-idp-ingest-sys-api)
-              names="EMAIL_PASSWORD SF_CLIENT_ID SF_CLIENT_SECRET OCR_API_KEY"
-              args="-Demail.password=$EMAIL_PASSWORD -Dsf.clientId=$SF_CLIENT_ID -Dsf.clientSecret=$SF_CLIENT_SECRET -Docr.apiKey=$OCR_API_KEY" ;;
-            order-intake-erp-api)
-              names="ODOO_API_KEY ERP_API_KEY"
-              args="-Dodoo.apiKey=$ODOO_API_KEY -Dapi.key=$ERP_API_KEY" ;;
+            email-idp-ingest-sys-api) props="email.password=EMAIL_PASSWORD sf.clientId=SF_CLIENT_ID sf.clientSecret=SF_CLIENT_SECRET ocr.apiKey=OCR_API_KEY" ;;
+            order-intake-erp-api)     props="odoo.apiKey=ODOO_API_KEY api.key=ERP_API_KEY" ;;
+            *) echo "::error::Unknown app ${{ inputs.app }}"; exit 1 ;;
           esac
-          for n in $names; do [ -z "${!n}" ] && { echo "::error::Secret $n is not set. See docs/CI-CD.md"; exit 1; }; done
-          echo "SECURE_ARGS=$args" >> "$GITHUB_ENV"
-
-      # CloudHub 2.0 deploys from Exchange: "mvn deploy" publishes the app, "mvn deploy -DmuleDeploy" deploys it
-      - name: Test and publish to Exchange
-        run: mvn -B deploy -Danypoint.orgId="$ANYPOINT_ORG_ID"
-
-      - name: Deploy to CloudHub 2.0
-        run: >
-          mvn -B deploy -DmuleDeploy -DskipMunitTests
-          -Danypoint.orgId="$ANYPOINT_ORG_ID"
-          -Danypoint.clientId="$ANYPOINT_CLIENT_ID"
-          -Danypoint.clientSecret="$ANYPOINT_CLIENT_SECRET"
-          -Danypoint.environment="${{ vars.ANYPOINT_ENVIRONMENT || 'Sandbox' }}"
-          -Danypoint.target="${{ vars.ANYPOINT_TARGET || 'Cloudhub-US-East-2' }}"
-          -Danypoint.muleVersion="${{ vars.MULE_VERSION || '4.13.1' }}"
-          -Danypoint.releaseChannel="${{ vars.MULE_RELEASE_CHANNEL || 'EDGE' }}"
-          $SECURE_ARGS
+          secure=()
+          for pair in $props; do
+            name="${pair#*=}"
+            # Pasted secrets often end with a line break or spaces; strip them
+            value="$(printf '%s' "${!name}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+            [ -z "$value" ] && { echo "::error::Secret $name is not set. See docs/CI-CD.md"; exit 1; }
+            secure+=("-D${pair%%=*}=$value")
+          done
+          mvn -B deploy -DmuleDeploy -DskipMunitTests \
+            -Danypoint.orgId="$ANYPOINT_ORG_ID" \
+            -Danypoint.clientId="$ANYPOINT_CLIENT_ID" \
+            -Danypoint.clientSecret="$ANYPOINT_CLIENT_SECRET" \
+            -Danypoint.environment="${{ vars.ANYPOINT_ENVIRONMENT || 'Sandbox' }}" \
+            -Danypoint.target="${{ vars.ANYPOINT_TARGET || 'Cloudhub-US-East-2' }}" \
+            -Danypoint.muleVersion="${{ vars.MULE_VERSION || '4.13.1' }}" \
+            -Danypoint.releaseChannel="${{ vars.MULE_RELEASE_CHANNEL || 'EDGE' }}" \
+            "${secure[@]}"
