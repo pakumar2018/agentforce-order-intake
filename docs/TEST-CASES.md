@@ -21,6 +21,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | A13 | Word PO | As A12 with a .docx PO | Same as A12, read with the Azure layout model and `Extract_Order_From_Document` | As A12 |
 | A14 | PO number mismatch | From `+cobalt`, body "Please process PO 7804", attach `PO-7795-Cobalt-clean.pdf` | **Needs Review** (Missing Field); Processing Error "PO number 7795 in the attachment differs from 7804 in the email body ..."; Customer PO Number 7795 (the attachment's); review **Case** | **Needs-Review**; no reply |
 | A15 | Rep resends after an ERP failure | After A3, raise the credit limit in Odoo (or lower the quantity), then ask the agent "Resend PO HP-2240 to the ERP" | Intake **ERP Confirmed**; the ERP review **Case closes** automatically | — |
+| A16 | Reviewed order goes to the ERP on its own | After A2, fix the lines with the agent and say "Create the order" only | Within seconds the intake is **ERP Confirmed** with the Odoo number, with no "Send it to the ERP" needed; the review **Case** is closed |
 | A8 | Unknown sender | Send from an address with no contact, PDF with customer no. CUST-1002 | Customer matched by customer number from the PDF | As A1 |
 
 ## B. Agent (Order Desk app → Agentforce panel)
@@ -34,9 +35,9 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | B5 | Accept the customer's PO price for line 3 | Line 3 becomes Matched at the PO price; intake ready for order |
 | B6 | Create the order | Asks for confirmation once; creates a Salesforce Order; intake **Order Created** |
 | B7 | Create an order for an intake with unresolved lines | Refuses and lists what must be fixed first |
-| B8 | Send it to the ERP | Asks for confirmation; returns the Odoo order number (S000xx); intake **ERP Confirmed**; order visible in Odoo with customer reference = PO number |
-| B9 | Send the same order to the ERP again | Returns the same Odoo order (no duplicate) |
-| B10 | Create and send PO HP-2210 to the ERP | Odoo rejects on credit limit; intake **ERP Failed**; agent explains and offers Credit escalation |
+| B8 | (after B6) What is the ERP status of this order? | No need to send it: creating the order sent it to Odoo automatically. Returns the Odoo order number (S000xx); intake **ERP Confirmed**; order visible in Odoo with customer reference = PO number |
+| B9 | Send it to the ERP (after B8) | Says it is already in the ERP and returns the same Odoo order number; nothing is sent again |
+| B10 | Create the order for PO HP-2210 | The order goes to Odoo automatically, which rejects it on the credit limit; intake **ERP Failed**; agent explains and offers Credit escalation |
 | B11 | Escalate it to the Credit team | Creates a Task for Credit; confirms |
 | B16 | Show me PO 45188 (after A2) | Details include "Review case: 0000xxxx (New)" |
 | B12 | What is the ERP status of PO 7781? (before ordering) | Says no Salesforce order exists yet, so nothing was sent |
@@ -48,7 +49,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 
 | Suite | How to run | Count | Expected |
 |---|---|---|---|
-| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 21 (actions, extraction endpoint, auto order creation with confirmation, ERP submit endpoint with confirmed, failed and resent orders, review Case open and close) | All pass |
+| Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 25 (actions, extraction endpoint, auto order creation with confirmation, ERP submit endpoint with confirmed, failed and resent orders, automatic ERP submit when a reviewed order is created, review Case open and close) | All pass |
 | Agentforce Testing Center | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10 | 10/10 output validation pass |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails | PO, change order, inquiry and other classified correctly |
 | MUnit (email ingest) | `mvn clean package` | 18 | All pass: an .xlsx attachment through the listener's own transform keeps its original bytes, body + attachment merge (body only, attachment only, both agreeing, body lines when the attachment has none, PO mismatch), ERP submit after order creation (confirmed: reply with the ERP number; failed: no reply, Needs-Review; review intake: not sent), choice of PO document and Azure model, Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |

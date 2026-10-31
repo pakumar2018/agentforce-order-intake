@@ -39,6 +39,14 @@ public with sharing class SubmitOrderToErp {
             res.message = OrderIntakeService.notFoundMessage(req.intakeReference);
             return res;
         }
+        // Already sent (for example automatically once the order was created): report it, never send twice
+        if (intake.Status__c == 'ERP Confirmed' && String.isNotBlank(intake.ERP_Order_Number__c)) {
+            res.success = true;
+            res.erpOrderNumber = intake.ERP_Order_Number__c;
+            res.message = 'Order ' + intake.Order__r.OrderNumber + ' is already in the ERP as ' + intake.ERP_Order_Number__c
+                + '. Intake ' + intake.Name + ' is ERP Confirmed.';
+            return res;
+        }
         if (intake.Order__c == null || !SUBMITTABLE.contains(intake.Status__c)) {
             res.message = intake.Name + ' cannot be sent to the ERP: status is ' + intake.Status__c
                 + (intake.Order__c == null ? ' and no order has been created yet.' : '.');

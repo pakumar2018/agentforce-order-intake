@@ -34,6 +34,9 @@ global with sharing class OrderIntakeExtractionApi {
         public String source;
         /** Create the Salesforce order when the intake has no exceptions */
         public Boolean autoCreateOrder;
+        /** The caller sends the created order to the ERP itself (/orderintake/v1/erp-submit), so the
+            automatic submit on Order Created (OrderIntakeErpAutoSubmit) is skipped */
+        public Boolean autoSubmitErp;
     }
 
     global class ExtractionResponse {
@@ -122,7 +125,12 @@ global with sharing class OrderIntakeExtractionApi {
         res.exceptions = intake.Exception_Reason__c;
         res.lineCount = lines.size();
         if (req.autoCreateOrder == true && intake.Status__c == OrderIntakeService.STATUS_EXTRACTED) {
-            createOrder(intake, res);
+            OrderIntakeErpAutoSubmit.suppress = req.autoSubmitErp == true;
+            try {
+                createOrder(intake, res);
+            } finally {
+                OrderIntakeErpAutoSubmit.suppress = false;
+            }
         }
         return res;
     }

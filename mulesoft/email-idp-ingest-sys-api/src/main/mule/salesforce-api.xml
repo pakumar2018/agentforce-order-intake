@@ -151,7 +151,7 @@ var text = "[" ++ vars.pdf.name ++ "]\n" ++ (vars.documentText default "")
         <http:request method="POST" config-ref="Salesforce_HTTP" path="/services/apexrest/orderintake/v1/extraction" doc:name="Apex REST extraction">
             <http:body><![CDATA[#[output application/json
 ---
-vars.extraction ++ { intakeId: vars.intakeId, autoCreateOrder: p('order.autoCreate') == "true" }]]]></http:body>
+vars.extraction ++ { intakeId: vars.intakeId, autoCreateOrder: p('order.autoCreate') == "true", autoSubmitErp: p('order.autoSubmitErp') == "true" }]]]></http:body>
             <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
         </http:request>
         <set-variable variableName="extractionResult" value="#[output application/java --- payload]" doc:name="Extraction result"/>

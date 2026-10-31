@@ -103,7 +103,7 @@ public with sharing class CreateOrderFromIntake {
         res.orderNumber = created.OrderNumber;
         res.message = 'Created order ' + created.OrderNumber + ' for ' + intake.Account__r.Name
             + ' (PO ' + intake.Customer_PO_Number__c + ') with ' + intake.Lines__r.size() + ' lines, total '
-            + OrderIntakeService.money(created.TotalAmount) + '. Intake ' + intake.Name + ' is now Order Created and ready to send to the ERP.';
+            + OrderIntakeService.money(created.TotalAmount) + '. Intake ' + intake.Name + ' is now Order Created and is being sent to the ERP automatically; check its ERP status in a moment.';
         return res;
     }
 }

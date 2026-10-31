@@ -46,7 +46,7 @@ Customer emails a purchase order: a PDF, image, Word or Excel file, or the order
                         the Case closes automatically once the order is created or the ERP confirms it
   -> The email moves to the Processed / Needs-Review / Not-Order label
   -> The Order Intake Assistant (Agentforce) helps the rep resolve exceptions, create the order,
-     send or resend it to the ERP and confirm to the customer
+     create the order (which then goes to the ERP on its own), resend failed ones and confirm to the customer
   -> MuleSoft ERP API (CloudHub) creates and confirms the sales order in Odoo; the customer credit limit is enforced
 ```
 
@@ -57,7 +57,7 @@ three subagents, and 10 invocable Apex actions.
 | Subagent | What the rep can ask | Actions |
 |---|---|---|
 | **Intake Review** | "What needs my attention?", "Show me PO 45188", "What could line 2 be?", "Use BRG-2001", "Accept the PO price", "Create the order", "Escalate to Pricing" | Find intakes, intake details, suggest product matches, update line, create order, escalate |
-| **ERP Sync** | "Send it to the ERP", "Why did HP-2210 fail?", "Show every ERP failure" | Find intakes, check ERP status, submit/resubmit to ERP, escalate |
+| **ERP Sync** | "What is the ERP status?", "Why did HP-2210 fail?", "Resend it to the ERP", "Show every ERP failure" | Find intakes, check ERP status, submit/resubmit to ERP, escalate |
 | **Customer Reply** | "Draft a confirmation for PO 45188", "Ask Summit for a clearer copy" | Draft confirmation (built from the order), intake details, send email |
 
 **Design choices that make it trustworthy**
@@ -93,6 +93,7 @@ changing Salesforce or the agent.
 | Prompts | `Classify_Order_Email`, `Extract_Order_From_Email` and `Extract_Order_From_Document` (Flex prompt templates) |
 | Review cases | `OrderIntakeTrigger` / `OrderIntakeReviewCases`: one Case per email that needs review, failed or was rejected by the ERP, closed when the order is created or the ERP confirms it |
 | Integration endpoints | Apex REST `/orderintake/v1/extraction`: builds lines, matches customer and products, sets exceptions, creates the order for a clean PO. Apex REST `/orderintake/v1/erp-submit`: sends that order to the ERP in its own transaction (the callout cannot follow the order DML) with the agent's Submit Order To ERP logic, and returns the ERP result and the confirmation |
+| Reviewed orders to ERP | `OrderIntakeErpAutoSubmit`: when an intake becomes Order Created (for example after the rep fixes it with the agent), `OrderIntakeTrigger` queues a job that runs `SubmitOrderToErp`, so the order reaches Odoo without a second request. MuleSoft's straight-through orders opt out, because MuleSoft sends them itself and waits for the ERP number for the reply |
 | MuleSoft: email ingest | `email-idp-ingest-sys-api` on CloudHub: Gmail IMAP → Salesforce REST (client credentials) → Agentforce classification → email body (prompt template) + attachment (Azure Document Intelligence), merged in DataWeave → Salesforce → ERP submit → reply |
 | MuleSoft: ERP API | `order-intake-erp-api` on CloudHub: `POST /api/orders/{id}/erp-submit`, `GET /api/orders/{id}/erp-status`; OpenAPI spec included |
 | Salesforce → MuleSoft | Named Credential `Order_Intake_Mule` + External Credential sending an `X-Api-Key` header |
@@ -100,7 +101,7 @@ changing Salesforce or the agent.
 | Document AI | Azure AI Document Intelligence (free tier), prebuilt invoice model |
 
 ## 6. Quality, testing and security
-- **Apex:** 21 tests (all actions, the extraction endpoint, auto order creation, the ERP submit endpoint with
+- **Apex:** 25 tests (all actions, the extraction endpoint, auto order creation, the automatic ERP submit of reviewed orders, the ERP submit endpoint with
   confirmed, rejected and resent orders, review cases, MuleSoft callouts with mocks), all passing.
 - **Testing Center:** 10-case functional suite (routing, action selection, response quality, off-topic refusal),
   10/10 passing on active version 2.

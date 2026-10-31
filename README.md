@@ -20,7 +20,7 @@ Customer email (Gmail)
                            ERP Failed    -> no reply, review Case (for example the Odoo credit limit)
             not clean -> Needs Review + review Case with all details
   -> Order Intake Assistant (Agentforce employee agent) resolves exceptions, creates the order,
-     sends or resends it to the ERP and drafts the customer confirmation
+     creates the order, which then goes to the ERP on its own, and drafts the customer confirmation
   -> MuleSoft ERP API (CloudHub) -> Odoo sales order, with the customer credit limit enforced
 ```
 
@@ -45,8 +45,10 @@ Customer email (Gmail)
   confirmation with the ERP order number without anyone touching it.
 - **Exceptions become Cases** with the full email, lines and exceptions (also when the ERP rejects an order); the
   Case closes when the order is created or the ERP confirms it.
+- **Reviewed orders go to the ERP on their own:** when Sam creates an order after a review, Salesforce sends it to
+  the ERP straight away (same logic as the agent's Submit Order To ERP) and records ERP Confirmed or ERP Failed.
 - **MuleSoft on CloudHub** for both integrations; Odoo as the ERP, with idempotent submission and credit limit checks.
-- **Tests:** 21 Apex tests, 10 Agentforce Testing Center cases, 18 MUnit tests.
+- **Tests:** 25 Apex tests, 10 Agentforce Testing Center cases, 18 MUnit tests.
 
 ## Setup
 See [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md). No credentials are stored in this repository: secrets are

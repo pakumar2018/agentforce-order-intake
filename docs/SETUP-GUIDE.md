@@ -86,7 +86,7 @@ Behaviour switches in `mule-app-dev.properties`:
 ## Testing
 | Test | How | Expected |
 |---|---|---|
-| Apex (21 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
+| Apex (25 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
 | Testing Center (10 cases) | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10/10 output validation pass (off-topic cases have no topic by design) |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails classified correctly |
 | Email ingest MUnit (18 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
@@ -95,8 +95,8 @@ Behaviour switches in `mule-app-dev.properties`:
 | Excel PO | `PO-7803-Cobalt.xlsx` attached from the Cobalt alias | The .xlsx is under Files on the intake; Extraction Source `attachment PO-7803-Cobalt.xlsx` (plus ` + email body` when the body filled a gap) |
 | ERP rejection | Email `PO-HP-2240-HarborPine-credit-limit.pdf` from the Harbor and Pine alias | Order created, then *ERP Failed* on the Odoo credit limit; no reply; High priority review Case; email in **Needs-Review** |
 | Exceptions | Email `PO-45188-Brightline-exceptions.pdf` from the Brightline alias | Intake *Needs Review*: Unknown SKU, Price Mismatch; a review Case is opened |
-| ERP | Agent: "Create the order for PO 7781", then "Send it to the ERP" | Odoo sales order number returned and visible in Odoo |
-| Credit limit | Agent: "Create the order for PO HP-2210", then "Send it to the ERP" | Rejected on the Odoo credit limit; agent offers Credit escalation |
+| ERP | Agent: "Create the order for PO 7781", then "What is its ERP status?" | The order went to Odoo automatically; the Odoo sales order number is returned and visible in Odoo |
+| Credit limit | Agent: "Create the order for PO HP-2210", then "What is its ERP status?" | Rejected on the Odoo credit limit; agent offers Credit escalation |
 
 ## Resetting the demo
 ```bash

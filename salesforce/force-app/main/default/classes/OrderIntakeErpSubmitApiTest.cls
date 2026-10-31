@@ -22,7 +22,9 @@ private class OrderIntakeErpSubmitApiTest {
             new Order_Intake_Line__c(Order_Intake__c = big.Id, Line_No__c = 1, Raw_SKU__c = 'PMP-6001', Quantity__c = 80,
                 Unit_Price_On_PO__c = 449.00, Product__c = pump.Id, List_Price__c = 449.00, Match_Status__c = 'Matched')
         };
-        // As OrderIntakeExtractionApi does for a clean intake: the order exists before MuleSoft calls erp-submit
+        // As OrderIntakeExtractionApi does for a clean intake: the order exists before MuleSoft calls erp-submit,
+        // and MuleSoft sends it itself, so the automatic submit on Order Created is off
+        OrderIntakeErpAutoSubmit.suppress = true;
         for (String poNumber : new List<String>{ 'PO-300', 'PO-400' }) {
             CreateOrderFromIntake.Request create = new CreateOrderFromIntake.Request();
             create.intakeReference = poNumber;
