@@ -58,3 +58,12 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | D3 | Azure key wrong or quota exceeded | Intake **Error** with the Azure message in Processing Error; a High priority review **Case**; email stays in Orders |
 | D5 | Gmail SMTP fails (for example a wrong App Password) | Order still created; the log shows "reply ... failed"; email moved as usual |
 | D4 | Both Studio and CloudHub running | Not allowed: run only one copy |
+
+## E. Deployment from GitHub (docs/CI-CD.md)
+
+| # | Test | Expected |
+|---|---|---|
+| E1 | Actions → **MuleSoft: ERP API** → Run workflow | Green run; new Exchange version; app Running in Runtime Manager at the same URL; D1 still returns 401 |
+| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (7 MUnit tests pass first); app Running; A9 still works |
+| E3 | Push a change under `mulesoft/<app>/` to `main` | Only that app's workflow runs and deploys |
+| E4 | Actions → **Salesforce: deploy** → Run workflow | Green run; metadata deployed; all Apex tests pass |
