@@ -28,8 +28,14 @@ jobs:
         with:
           node-version: '22'
 
+      # Salesforce's packaged CLI includes its dependencies, so it does not depend on the npm registry
       - name: Install Salesforce CLI
-        run: npm install --global @salesforce/cli@2.156.8
+        run: |
+          mkdir -p "$HOME/sf"
+          curl -sSL https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz \
+            | tar -xJ -C "$HOME/sf" --strip-components 1
+          echo "$HOME/sf/bin" >> "$GITHUB_PATH"
+          "$HOME/sf/bin/sf" --version
 
       - name: Log in
         env:
