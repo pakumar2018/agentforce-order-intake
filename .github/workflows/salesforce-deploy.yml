@@ -29,7 +29,7 @@ jobs:
           node-version: '22'
 
       - name: Install Salesforce CLI
-        run: npm install --global @salesforce/cli
+        run: npm install --global @salesforce/cli@2.156.8
 
       - name: Log in
         env:
