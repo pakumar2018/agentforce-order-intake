@@ -66,7 +66,7 @@ secret `ocr.apiKey`.
 ## 6. MuleSoft email ingest (`email-idp-ingest-sys-api`)
 Set `email.username`, `sf.host` and `ocr.host` in `mule-app-dev.properties`. Deploy to CloudHub (Mule 4.11,
 Java 17) with the secure properties `email.password`, `sf.clientId`, `sf.clientSecret` and `ocr.apiKey`.
-Run only one copy at a time (Studio or CloudHub), since both would poll the same mailbox.
+Run only one copy at a time (Studio or CloudHub). Two copies poll the same mailbox and race for the same emails: an older Studio copy handled PO 7804 in a live test with outdated code (Word attachment ignored) and its stale IMAP connection failed the move. Stop the Studio run (red Stop button in the Console) whenever CloudHub is deployed.
 
 Behaviour switches in `mule-app-dev.properties`:
 - `order.autoCreate=true`: a clean PO becomes a Salesforce order straight away.
@@ -90,7 +90,7 @@ Behaviour switches in `mule-app-dev.properties`:
 | Apex (25 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
 | Testing Center (10 cases) | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10/10 output validation pass (off-topic cases have no topic by design) |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails classified correctly |
-| Email ingest MUnit (18 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
+| Email ingest MUnit (20 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
 | End to end | Email `PO-7795-Cobalt-clean.pdf` from the Cobalt alias | Intake *ERP Confirmed* with the Odoo order number, 3 matched lines, "order created" reply with that number in the thread, email in **Processed** |
 | Order in the email body | No PDF; body "PO 7801: 40 x BLT-3001 at 22.00, 40 x NUT-3101 at 9.80" from the Cobalt alias | Intake *ERP Confirmed* (Extraction Source: email body), reply sent |
 | Excel PO | `PO-7803-Cobalt.xlsx` attached from the Cobalt alias | The .xlsx is under Files on the intake; Extraction Source `attachment PO-7803-Cobalt.xlsx` (plus ` + email body` when the body filled a gap) |

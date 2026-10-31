@@ -114,11 +114,11 @@ changing Salesforce or the agent.
   confirmed, rejected and resent orders, review cases, MuleSoft callouts with mocks), all passing.
 - **Testing Center:** 10-case functional suite (routing, action selection, response quality, off-topic refusal),
   10/10 passing on active version 2.
-- **MuleSoft:** the email ingest app builds with `mvn package` and has 18 MUnit tests, including the mapping of a real
+- **MuleSoft:** the email ingest app builds with `mvn package` and has 20 MUnit tests, including the mapping of a real
   Azure result for the PO 45188 demo PDF, a PO whose rows Azure merged into one item (lines are read from the
   detected table), an order written in the email body, an Excel attachment run through the listener's own transform
   (the original file bytes are kept), the body + attachment merge (body only, attachment only, both agreeing, PO
-  mismatch), and the ERP submit with and without ERP confirmation. Both MuleSoft apps run on CloudHub.
+  mismatch), and the ERP submit with and without ERP confirmation, and moving the email to its label with retries. Both MuleSoft apps run on CloudHub.
 - **Live end-to-end tests:** a PO emailed from Gmail became a Salesforce intake with 3 lines read by Azure
   (91% confidence); the agent created the order and Odoo confirmed it (S00003); a 35,920 order was rejected on the
   Odoo customer credit limit and escalated to the Credit team; an order typed in the email body (PO 7801) and a

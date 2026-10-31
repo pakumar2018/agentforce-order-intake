@@ -52,7 +52,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 25 (actions, extraction endpoint, auto order creation with confirmation, ERP submit endpoint with confirmed, failed and resent orders, automatic ERP submit when a reviewed order is created, review Case open and close) | All pass |
 | Agentforce Testing Center | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10 | 10/10 output validation pass |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails | PO, change order, inquiry and other classified correctly |
-| MUnit (email ingest) | `mvn clean package` | 18 | All pass: an .xlsx attachment through the listener's own transform keeps its original bytes, body + attachment merge (body only, attachment only, both agreeing, body lines when the attachment has none, PO mismatch), ERP submit after order creation (confirmed: reply with the ERP number; failed: no reply, Needs-Review; review intake: not sent), choice of PO document and Azure model, Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
+| MUnit (email ingest) | `mvn clean package` | 20 | All pass: moving the email to its label is retried and a failed move never marks the intake Error, an .xlsx attachment through the listener's own transform keeps its original bytes, body + attachment merge (body only, attachment only, both agreeing, body lines when the attachment has none, PO mismatch), ERP submit after order creation (confirmed: reply with the ERP number; failed: no reply, Needs-Review; review intake: not sent), choice of PO document and Azure model, Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
 
 ## D. Integration and security checks
 
@@ -63,13 +63,14 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | D6 | ERP API down when a clean order arrives | Order created; intake **ERP Failed** with the HTTP error in ERP Error; review **Case**; no reply; email to **Needs-Review**; the rep resends it with the agent later |
 | D3 | Azure key wrong or quota exceeded | Intake **Error** with the Azure message in Processing Error; a High priority review **Case**; email stays in Orders |
 | D5 | Gmail SMTP fails (for example a wrong App Password) | Order still created; the log shows "reply ... failed"; email moved as usual |
-| D4 | Both Studio and CloudHub running | Not allowed: run only one copy |
+| D4 | Both Studio and CloudHub running | Not allowed: run only one copy. Symptoms when both run: emails handled by the older copy (Word or Excel attachment ignored, no "[Attachments: ...]" line in Email Body) and "Error while moving email" |
+| D7 | Gmail drops the idle IMAP connection before the email is moved | The move is retried (email.moveRetries); if it still fails, the log says "is complete, but email N could not be moved" and the intake keeps its real status (no Error, no Case); the email stays under Orders, marked read |
 
 ## E. Deployment from GitHub (docs/CI-CD.md)
 
 | # | Test | Expected |
 |---|---|---|
 | E1 | Actions → **MuleSoft: ERP API** → Run workflow | Green run; new Exchange version; app Running in Runtime Manager at the same URL; D1 still returns 401 |
-| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (18 MUnit tests pass first); app Running; A9 still works |
+| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (20 MUnit tests pass first); app Running; A9 still works |
 | E3 | Push a change under `mulesoft/<app>/` to `main` | Only that app's workflow runs and deploys |
 | E4 | Actions → **Salesforce: deploy** → Run workflow | Green run; metadata deployed; all Apex tests pass |

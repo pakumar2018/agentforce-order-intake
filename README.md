@@ -48,7 +48,7 @@ Customer email (Gmail)
 - **Reviewed orders go to the ERP on their own:** when Sam creates an order after a review, Salesforce sends it to
   the ERP straight away (same logic as the agent's Submit Order To ERP) and records ERP Confirmed or ERP Failed.
 - **MuleSoft on CloudHub** for both integrations; Odoo as the ERP, with idempotent submission and credit limit checks.
-- **Tests:** 25 Apex tests, 10 Agentforce Testing Center cases, 18 MUnit tests.
+- **Tests:** 25 Apex tests, 10 Agentforce Testing Center cases, 20 MUnit tests.
 
 ## Setup
 See [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md). No credentials are stored in this repository: secrets are

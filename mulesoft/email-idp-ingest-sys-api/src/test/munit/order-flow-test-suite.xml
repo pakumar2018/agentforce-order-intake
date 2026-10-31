@@ -225,4 +225,64 @@
             <munit-tools:assert-that expression="#[vars.targetFolder]" is="#[MunitTools::equalTo('Needs-Review')]"/>
         </munit:validation>
     </munit:test>
+
+    <!-- ============ Moving the email to its result label ============ -->
+
+    <munit:test name="email-move-is-retried-and-never-fails-the-intake" description="Gmail dropped the IMAP connection: the move is retried, then logged; the intake is not marked Error">
+        <munit:behavior>
+            <munit-tools:mock-when processor="email:move-to-folder">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Re-label email"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="MULE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="intakeId" value="a0X000000000058"/>
+                    <munit:variable key="emailId" value="31"/>
+                    <munit:variable key="targetFolder" value="Needs-Review"/>
+                </munit:variables>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="relabel-email"/>
+        </munit:execution>
+        <munit:validation>
+            <!-- 1 attempt + email.moveRetries (3) -->
+            <munit-tools:verify-call processor="email:move-to-folder" times="4">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Re-label email"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="email-move-succeeds-first-time" description="A working connection moves the email once">
+        <munit:behavior>
+            <munit-tools:mock-when processor="email:move-to-folder">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Re-label email"/>
+                </munit-tools:with-attributes>
+            </munit-tools:mock-when>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="intakeId" value="a0X000000000057"/>
+                    <munit:variable key="emailId" value="30"/>
+                    <munit:variable key="targetFolder" value="Processed"/>
+                </munit:variables>
+            </munit:set-event>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="relabel-email"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="email:move-to-folder" times="1">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Re-label email"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
 </mule>

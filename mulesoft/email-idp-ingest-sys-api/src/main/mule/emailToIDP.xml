@@ -66,7 +66,7 @@
             </when>
             <otherwise>
                 <flow-ref name="process-new-intake" doc:name="Process new intake"/>
-                <email:move-to-folder config-ref="Gmail_IMAP" sourceFolder="${email.folder}" targetFolder="#[vars.targetFolder]" emailId="#[vars.emailId]" doc:name="Re-label email"/>
+                <flow-ref name="relabel-email" doc:name="Re-label email"/>
             </otherwise>
         </choice>
 
@@ -81,6 +81,24 @@
             </on-error-continue>
         </error-handler>
     </flow>
+
+    <!-- ============ Move the email to its result label ============ -->
+    <!-- emailId is the IMAP UID, stable while other emails are moved. Gmail drops IMAP connections that sit idle,
+         and the move then fails with "Error while moving email" (StoreClosedException / FolderClosedException);
+         the connector reopens the folder on the next attempt, so the move is retried. The intake is already
+         complete at this point, so a move that still fails is logged and does not turn the intake into Error. -->
+    <sub-flow name="relabel-email">
+        <try doc:name="Move email">
+            <until-successful maxRetries="${email.moveRetries}" millisBetweenRetries="${email.moveRetryMillis}" doc:name="Retry on a dropped connection">
+                <email:move-to-folder config-ref="Gmail_IMAP" sourceFolder="${email.folder}" targetFolder="#[vars.targetFolder]" emailId="#[vars.emailId]" doc:name="Re-label email"/>
+            </until-successful>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="ERROR" message="#[output application/java --- 'Intake ' ++ (vars.intakeId default '?') ++ ' is complete, but email ' ++ (vars.emailId default '?') ++ ' could not be moved to ' ++ (vars.targetFolder default '?') ++ ': ' ++ (error.description default '') ++ ' (' ++ ((error.detailedDescription default '') as String) ++ ')']" doc:name="Log move failure"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
 
     <!-- ============ Email metadata and attachments (the listener's payload: body + attachments map) ============ -->
     <sub-flow name="read-order-email">
