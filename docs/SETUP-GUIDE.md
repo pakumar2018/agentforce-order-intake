@@ -80,7 +80,7 @@ Run only one copy at a time (Studio or CloudHub), since both would poll the same
 | Apex (17 tests) | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | All pass |
 | Testing Center (10 cases) | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10/10 output validation pass (off-topic cases have no topic by design) |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails classified correctly |
-| Email ingest MUnit (8 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
+| Email ingest MUnit (9 tests) | `mvn clean package` in `email-idp-ingest-sys-api` | All pass |
 | End to end | Email `PO-7795-Cobalt-clean.pdf` from the Cobalt alias | Intake *Order Created*, 3 matched lines, "order created" reply in the thread, email in **Processed** |
 | Order in the email body | No PDF; body "PO 7801: 40 x BLT-3001 at 22.00, 40 x NUT-3101 at 9.80" from the Cobalt alias | Intake *Order Created* (Extraction Source: email body), reply sent |
 | Exceptions | Email `PO-45188-Brightline-exceptions.pdf` from the Brightline alias | Intake *Needs Review*: Unknown SKU, Price Mismatch; a review Case is opened |

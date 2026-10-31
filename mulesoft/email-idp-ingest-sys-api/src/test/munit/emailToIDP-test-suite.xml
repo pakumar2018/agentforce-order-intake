@@ -91,6 +91,25 @@
         </munit:validation>
     </munit:test>
 
+    <munit:test name="picks-the-po-document-and-azure-model" description="PDF first, then images, then Word/Excel (layout model); other files are ignored">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import * from modules::Documents&#10;output application/java&#10;---&#10;{
+  pdfFirst: poDocument([{ name: 'logo.png' }, { name: 'PO-7803.xlsx' }, { name: 'PO-7803.pdf' }]).name,
+  imageOverOffice: poDocument([{ name: 'PO.docx' }, { name: 'scan.JPG' }]).readMode,
+  office: poDocument([{ name: 'notes.txt' }, { name: 'PO-7803-Cobalt.xlsx' }]),
+  none: poDocument([{ name: 'notes.txt' }]),
+  docxType: contentType('PO-7804-Cobalt.docx')
+}]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.pdfFirst]" is="#[MunitTools::equalTo('PO-7803.pdf')]"/>
+            <munit-tools:assert-that expression="#[payload.imageOverOffice]" is="#[MunitTools::equalTo('invoice')]"/>
+            <munit-tools:assert-that expression="#[payload.office.readMode ++ '|' ++ payload.office.contentType]" is="#[MunitTools::equalTo('office|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')]"/>
+            <munit-tools:assert-that expression="#[payload.none == null]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.docxType]" is="#[MunitTools::equalTo('application/vnd.openxmlformats-officedocument.wordprocessingml.document')]"/>
+        </munit:validation>
+    </munit:test>
+
     <munit:test name="message-key-is-url-safe" description="Gmail Message-IDs become a stable, URL-safe SHA-1 key">
         <munit:execution>
             <set-payload value="#[%dw 2.0&#10;import SHA1 from dw::Crypto&#10;output application/java&#10;---&#10;'gm-' ++ SHA1('&lt;CAOdUkAHw+YL/CtQ=@mail.gmail.com&gt;' as Binary)]"/>

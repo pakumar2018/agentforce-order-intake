@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Azure AI Document Intelligence: analyze the PO PDF in vars.pdf with the prebuilt invoice model
-  (it returns PurchaseOrder, CustomerId and Items with ProductCode / Quantity / UnitPrice).
+  Azure AI Document Intelligence: analyze the PO document in vars.pdf (name, content, contentType).
+    PDF and images: prebuilt invoice model (PurchaseOrder, CustomerId, Items and the line table).
+    Word, Excel, PowerPoint, HTML: the invoice model does not accept them, so the layout model returns their
+    text and tables as markdown (read-office-with-azure), which the email-body prompt template then reads.
     POST https://{ocr.host}/documentintelligence/documentModels/{ocr.model}:analyze?api-version={ocr.apiVersion}
       -> 202 with an Operation-Location header
     GET  Operation-Location until status is succeeded or failed
@@ -21,22 +23,32 @@
         <http:request-connection protocol="HTTPS" host="${ocr.host}" port="443"/>
     </http:request-config>
 
-    <!-- Every purchase order PDF is read by Azure; the result becomes vars.extraction for Salesforce -->
+    <!-- Purchase order PDFs and images are read by the invoice model; the result becomes vars.extraction -->
     <sub-flow name="extract-po-with-azure">
+        <set-variable variableName="ocrModel" value="${ocr.model}" doc:name="Invoice model"/>
         <flow-ref name="azure-analyze-po" doc:name="Analyze with Azure Document Intelligence"/>
         <flow-ref name="map-azure-result" doc:name="Map Azure result"/>
         <set-variable variableName="extraction" value="#[output application/java --- payload]" doc:name="extraction"/>
     </sub-flow>
 
+    <!-- Word and Excel POs: the document's text and tables as markdown in vars.documentText -->
+    <sub-flow name="read-office-with-azure">
+        <set-variable variableName="ocrModel" value="${ocr.officeModel}" doc:name="Layout model"/>
+        <flow-ref name="azure-analyze-po" doc:name="Analyze with Azure Document Intelligence"/>
+        <set-variable variableName="documentText" doc:name="Document text"
+                      value="#[output application/java --- (payload.analyzeResult.content default '') as String]"/>
+    </sub-flow>
+
     <sub-flow name="azure-analyze-po">
         <http:request method="POST" config-ref="Azure_DocIntel_HTTP" doc:name="Start analysis"
-                      path="/documentintelligence/documentModels/${ocr.model}:analyze">
+                      path="#[output application/java --- '/documentintelligence/documentModels/' ++ vars.ocrModel ++ ':analyze']">
             <http:body><![CDATA[#[vars.pdf.content]]]></http:body>
             <http:headers><![CDATA[#[output application/java --- {
                 'Ocp-Apim-Subscription-Key': p('ocr.apiKey'),
-                'Content-Type': 'application/pdf'
+                'Content-Type': vars.pdf.contentType default 'application/pdf'
             }]]]></http:headers>
-            <http:query-params><![CDATA[#[output application/java --- { 'api-version': p('ocr.apiVersion') }]]]></http:query-params>
+            <http:query-params><![CDATA[#[output application/java --- { 'api-version': p('ocr.apiVersion') }
+    ++ (if (vars.ocrModel == p('ocr.officeModel')) { outputContentFormat: 'markdown' } else {})]]]></http:query-params>
         </http:request>
         <!-- Operation-Location is a full URL on the same host; keep only its path -->
         <set-variable variableName="ocrResultPath" doc:name="Result path"

@@ -111,6 +111,18 @@ output application/json
         <flow-ref name="map-email-body-result" doc:name="Map to extraction"/>
     </sub-flow>
 
+    <!-- The attached Word/Excel PO's text goes after the email body, where Extract_Order_From_Email reads it -->
+    <sub-flow name="salesforce-append-document-text">
+        <http:request method="PATCH" config-ref="Salesforce_HTTP" path="/services/data/${sf.apiVersion}/sobjects/Order_Intake__c/{intakeId}" doc:name="Email body plus document text">
+            <http:body><![CDATA[#[output application/json
+var text = (vars.email.body default "") ++ "\n\n[Attachment " ++ vars.pdf.name ++ "]\n" ++ (vars.documentText default "")
+---
+{ Email_Body__c: if (sizeOf(text) > 32000) text[0 to 31999] else text }]]]></http:body>
+            <http:headers><![CDATA[#[{ Authorization: vars.sfAuth }]]]></http:headers>
+            <http:uri-params><![CDATA[#[{ intakeId: vars.intakeId }]]]></http:uri-params>
+        </http:request>
+    </sub-flow>
+
     <sub-flow name="map-email-body-result">
         <ee:transform doc:name="Generation to extraction contract">
             <ee:variables>

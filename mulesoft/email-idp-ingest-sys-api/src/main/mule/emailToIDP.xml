@@ -132,11 +132,21 @@ output application/java
 
         <flow-ref name="salesforce-classify-intake" doc:name="Classify with Agentforce"/>
 
+        <set-variable variableName="pdf" doc:name="PO document"
+                      value="#[%dw 2.0&#10;import poDocument from modules::Documents&#10;output application/java&#10;---&#10;poDocument(vars.attachments)]"/>
         <choice doc:name="Route by classification">
-            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and not isEmpty(vars.pdfs)]">
-                <set-variable variableName="pdf" value="#[output application/java --- vars.pdfs[0]]" doc:name="PO PDF"/>
-                <set-variable variableName="extractionSource" value="PDF" doc:name="Source PDF"/>
+            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and vars.pdf.readMode == 'invoice']">
+                <set-variable variableName="extractionSource" doc:name="Source PDF or image"
+                              value="#[output application/java --- if (vars.pdf.contentType == 'application/pdf') 'PDF' else 'image attachment']"/>
                 <flow-ref name="extract-po-with-azure" doc:name="Extract PO with Azure Document Intelligence"/>
+                <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
+            </when>
+            <when expression="#[output application/java --- vars.classification.category == 'Purchase Order' and vars.pdf.readMode == 'office']">
+                <!-- Word or Excel PO: Azure layout reads the file, the email-body prompt template reads the result -->
+                <set-variable variableName="extractionSource" value="#[output application/java --- 'attachment ' ++ vars.pdf.name]" doc:name="Source Office file"/>
+                <flow-ref name="read-office-with-azure" doc:name="Read Word/Excel with Azure layout"/>
+                <flow-ref name="salesforce-append-document-text" doc:name="Add document text to the intake"/>
+                <flow-ref name="salesforce-extract-from-body" doc:name="Extract PO with Agentforce"/>
                 <flow-ref name="complete-purchase-order" doc:name="Order or review"/>
             </when>
             <when expression="#[output application/java --- vars.classification.category == 'Purchase Order']">
