@@ -36,7 +36,9 @@ jobs:
           SF_AUTH_URL: ${{ secrets.SF_AUTH_URL }}
         run: |
           [ -z "$SF_AUTH_URL" ] && { echo "::error::Secret SF_AUTH_URL is not set. See docs/CI-CD.md"; exit 1; }
-          echo "$SF_AUTH_URL" > auth-url.txt
+          # Values piped in from PowerShell can carry a byte-order mark, quotes or a line break; keep only the URL
+          printf '%s' "$SF_AUTH_URL" | tr -d '\r\n"' | sed 's/^\xEF\xBB\xBF//; s/^[[:space:]]*//; s/[[:space:]]*$//' > auth-url.txt
+          grep -q '^force://' auth-url.txt || { echo "::error::SF_AUTH_URL must start with force:// (see docs/CI-CD.md)"; exit 1; }
           sf org login sfdx-url --sfdx-url-file auth-url.txt --alias orderintake --set-default
           rm auth-url.txt
 
