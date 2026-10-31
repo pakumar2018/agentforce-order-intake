@@ -37,7 +37,7 @@ Customer email (Gmail)
 - **Straight-through processing:** a clean PO becomes an order and gets a confirmation reply without anyone touching it.
 - **Exceptions become Cases** with the full email, lines and exceptions; the Case closes when the order is created.
 - **MuleSoft on CloudHub** for both integrations; Odoo as the ERP, with idempotent submission and credit limit checks.
-- **Tests:** 17 Apex tests, 10 Agentforce Testing Center cases, 7 MUnit tests.
+- **Tests:** 17 Apex tests, 10 Agentforce Testing Center cases, 8 MUnit tests.
 
 ## Setup
 See [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md). No credentials are stored in this repository: secrets are

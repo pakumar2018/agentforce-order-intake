@@ -31,18 +31,39 @@ public with sharing class OrderIntakeReviewCases {
             openCaseByIntake.put(c.Order_Intake__c, c);
         }
 
-        List<Case> changes = new List<Case>();
         toOpen.removeAll(openCaseByIntake.keySet());
         if (!toOpen.isEmpty()) {
-            changes.addAll(newCases(toOpen));
+            List<Case> opened = newCases(toOpen);
+            insert opened;
+            shareFiles(opened);
         }
+        List<Case> closed = new List<Case>();
         for (Id intakeId : toClose) {
             Case open = openCaseByIntake.get(intakeId);
             if (open != null) {
-                changes.add(new Case(Id = open.Id, Status = 'Closed'));
+                closed.add(new Case(Id = open.Id, Status = 'Closed'));
             }
         }
-        upsert changes;
+        update closed;
+    }
+
+    /** The email's attachments (on the intake) also appear on the review case. */
+    private static void shareFiles(List<Case> cases) {
+        Map<Id, Id> caseByIntake = new Map<Id, Id>();
+        for (Case c : cases) {
+            caseByIntake.put(c.Order_Intake__c, c.Id);
+        }
+        List<ContentDocumentLink> links = new List<ContentDocumentLink>();
+        for (ContentDocumentLink link : [
+            SELECT ContentDocumentId, LinkedEntityId FROM ContentDocumentLink WHERE LinkedEntityId IN :caseByIntake.keySet()
+        ]) {
+            links.add(new ContentDocumentLink(
+                ContentDocumentId = link.ContentDocumentId,
+                LinkedEntityId = caseByIntake.get(link.LinkedEntityId),
+                ShareType = 'V'
+            ));
+        }
+        insert links;
     }
 
     private static List<Case> newCases(Set<Id> intakeIds) {

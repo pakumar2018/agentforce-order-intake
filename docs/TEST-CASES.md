@@ -47,7 +47,7 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | Apex | `sf project deploy start --source-dir force-app --test-level RunLocalTests` | 17 (actions, extraction endpoint, auto order creation with confirmation, review Case open and close) | All pass |
 | Agentforce Testing Center | `sf agent test run --api-name Order_Intake_Assistant_Tests --wait 15` | 10 | 10/10 output validation pass |
 | Classification | `scripts/test-classification.ps1` | 4 sample emails | PO, change order, inquiry and other classified correctly |
-| MUnit (email ingest) | `mvn clean package` | 7 | All pass: Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
+| MUnit (email ingest) | `mvn clean package` | 8 | All pass: Received At from the Date header, Azure mapping for PO 45188, merged-rows PO 7795 read from the table, Items fallback, order from the email body, message key, sender address, attachment names |
 
 ## D. Integration and security checks
 
@@ -64,6 +64,6 @@ Run the reset and reseed scripts before testing (see SETUP-GUIDE.md). Send email
 | # | Test | Expected |
 |---|---|---|
 | E1 | Actions → **MuleSoft: ERP API** → Run workflow | Green run; new Exchange version; app Running in Runtime Manager at the same URL; D1 still returns 401 |
-| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (7 MUnit tests pass first); app Running; A9 still works |
+| E2 | Actions → **MuleSoft: email ingest** → Run workflow | Green run (8 MUnit tests pass first); app Running; A9 still works |
 | E3 | Push a change under `mulesoft/<app>/` to `main` | Only that app's workflow runs and deploys |
 | E4 | Actions → **Salesforce: deploy** → Run workflow | Green run; metadata deployed; all Apex tests pass |

@@ -80,6 +80,17 @@
         </munit:validation>
     </munit:test>
 
+    <munit:test name="received-at-uses-the-date-header-offset" description="11:14 p.m. Eastern becomes 03:14 UTC the next day; a bad header falls back to now">
+        <munit:execution>
+            <set-payload value="#[%dw 2.0&#10;import receivedIso from modules::EmailDates&#10;output application/java&#10;---&#10;{ eastern: receivedIso('Fri, 30 Oct 2026 23:14:34 -0400 (EDT)'), utc: receivedIso('31 Oct 2026 03:14:34 +0000'), bad: receivedIso('not a date') }]"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.eastern]" is="#[MunitTools::equalTo('2026-10-31T03:14:34Z')]"/>
+            <munit-tools:assert-that expression="#[payload.utc]" is="#[MunitTools::equalTo('2026-10-31T03:14:34Z')]"/>
+            <munit-tools:assert-that expression="#[payload.bad matches /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
     <munit:test name="message-key-is-url-safe" description="Gmail Message-IDs become a stable, URL-safe SHA-1 key">
         <munit:execution>
             <set-payload value="#[%dw 2.0&#10;import SHA1 from dw::Crypto&#10;output application/java&#10;---&#10;'gm-' ++ SHA1('&lt;CAOdUkAHw+YL/CtQ=@mail.gmail.com&gt;' as Binary)]"/>

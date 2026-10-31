@@ -94,10 +94,15 @@ private class OrderIntakeExtractionApiTest {
         req.poNumber = '7802';
         req.autoCreateOrder = true;
         req.lines = new List<OrderIntakeExtractionApi.ExtractionLine>{ line('ZZZ-1', 5, 1) };
+        // The email's attachment, as MuleSoft uploads it before extraction
+        insert new ContentVersion(Title = 'PO-7802.pdf', PathOnClient = 'PO-7802.pdf',
+            VersionData = Blob.valueOf('%PDF-1.4 test'), FirstPublishLocationId = req.intakeId);
         OrderIntakeExtractionApi.ExtractionResponse res = post(req);
 
         Assert.areEqual('Needs Review', res.status);
         Assert.isNull(res.orderNumber);
+        Id reviewId = [SELECT Id FROM Case WHERE Order_Intake__c = :req.intakeId].Id;
+        Assert.areEqual(1, [SELECT COUNT() FROM ContentDocumentLink WHERE LinkedEntityId = :reviewId], 'The PDF is on the case');
         Case review = [SELECT Subject, Description, Status, SuppliedEmail, ContactId, AccountId FROM Case WHERE Order_Intake__c = :req.intakeId];
         Assert.isTrue(review.Subject.contains('PO 7802') && review.Subject.contains('Unknown SKU'), review.Subject);
         Assert.isTrue(review.Description.contains('ZZZ-1'), review.Description);

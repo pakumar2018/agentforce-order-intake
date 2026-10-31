@@ -53,14 +53,16 @@
         </email:listener-imap>
 
         <set-variable variableName="emailId" value="#[output application/java --- attributes.id]" doc:name="IMAP email id"/>
-        <ee:transform doc:name="Email metadata and PDF attachments">
+        <ee:transform doc:name="Email metadata and attachments">
             <ee:variables>
                 <ee:set-variable variableName="email"><![CDATA[%dw 2.0
 import SHA1 from dw::Crypto
+import receivedIso from modules::EmailDates
 output application/java
 var headers = attributes.headers default {}
 var messageIds = (headers filterObject ((value, key) -> lower(key as String) == "message-id")) pluck $
 var messageId = if (isEmpty(messageIds)) ("imap-" ++ (attributes.id as String)) else (messageIds[0] as String)
+var dateHeaders = (headers filterObject ((value, key) -> lower(key as String) == "date")) pluck $
 // Gmail sends HTML bodies; keep readable text for the classifier and the record
 var bodyText = trim((((payload.body default "") as String default "") replace /<[^>]+>/ with " " replace /&nbsp;/ with " " replace /\s+/ with " "))
 // The classifier cannot open attachments, so it gets their names (e.g. "PO-7795-Cobalt-clean.pdf")
@@ -78,11 +80,16 @@ var fromAddress = if (fromRaw contains "<") ((fromRaw match /.*<([^>]+)>.*/)[1] 
     messageId: messageId,
     from: lower(trim(fromAddress)),
     subject: attributes.subject default "",
-    // Email connector gives a LocalDateTime; the runtime (CloudHub) runs in UTC
-    receivedIso: if (attributes.receivedDate == null) (now() as String {format: "yyyy-MM-dd'T'HH:mm:ssXXX"})
-                 else ((attributes.receivedDate as LocalDateTime) as String {format: "yyyy-MM-dd'T'HH:mm:ss"}) ++ "Z",
+    // From the Date header, which carries its own time zone (the connector's receivedDate has none)
+    receivedIso: receivedIso(dateHeaders[0]),
     body: if (sizeOf(bodyWithAttachments) > 32000) bodyWithAttachments[0 to 31999] else bodyWithAttachments
 }]]></ee:set-variable>
+                <!-- Every attachment is stored on the intake; the first PDF is the one Azure reads -->
+                <ee:set-variable variableName="attachments"><![CDATA[%dw 2.0
+output application/java
+---
+((payload.attachments default {}) pluck ((content, name) -> { name: name as String, content: content }))
+    filter ((attachment) -> not isBlank(attachment.name))]]></ee:set-variable>
                 <ee:set-variable variableName="pdfs"><![CDATA[%dw 2.0
 output application/java
 ---
@@ -90,7 +97,7 @@ output application/java
     filter ((attachment) -> lower(attachment.name) endsWith ".pdf")]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <logger level="INFO" message="#[output application/java --- 'Order email from ' ++ vars.email.from ++ ': ' ++ vars.email.subject ++ ' (' ++ sizeOf(vars.pdfs) ++ ' PDF)']" doc:name="Log email"/>
+        <logger level="INFO" message="#[output application/java --- 'Order email from ' ++ vars.email.from ++ ': ' ++ vars.email.subject ++ ' (' ++ sizeOf(vars.attachments) ++ ' attachments, ' ++ sizeOf(vars.pdfs) ++ ' PDF)']" doc:name="Log email"/>
 
         <flow-ref name="salesforce-token" doc:name="Salesforce token"/>
         <flow-ref name="salesforce-upsert-intake" doc:name="Upsert Order Intake"/>
@@ -117,10 +124,10 @@ output application/java
         </error-handler>
     </flow>
 
-    <!-- ============ Attach PDFs, classify, extract ============ -->
+    <!-- ============ Attach files, classify, extract ============ -->
     <sub-flow name="process-new-intake">
-        <foreach collection="#[vars.pdfs]" doc:name="For each PDF">
-            <flow-ref name="salesforce-attach-pdf" doc:name="Attach PDF to intake"/>
+        <foreach collection="#[vars.attachments]" doc:name="For each attachment">
+            <flow-ref name="salesforce-attach-pdf" doc:name="Attach file to intake"/>
         </foreach>
 
         <flow-ref name="salesforce-classify-intake" doc:name="Classify with Agentforce"/>
