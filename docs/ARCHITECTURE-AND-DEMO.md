@@ -16,7 +16,7 @@ flowchart LR
 
     subgraph MULE["MuleSoft Anypoint (CloudHub 2.0)"]
         INGEST["email-idp-ingest-sys-api<br/>IMAP listener · routing ·<br/>SMTP reply"]
-        ERPAPI["order-intake-erp-api<br/>POST /orders/{id}/erp-submit<br/>GET /orders/{id}/erp-status<br/>X-Api-Key · credit limit · idempotent"]
+        ERPAPI["order-intake-erp-api<br/>POST /orders/:id/erp-submit<br/>GET /orders/:id/erp-status<br/>X-Api-Key · credit limit · idempotent"]
     end
 
     subgraph AZ["Microsoft Azure"]
@@ -29,7 +29,7 @@ flowchart LR
         PT2["Prompt template<br/>Extract_Order_From_Email"]
         REST["Apex REST<br/>/orderintake/v1/extraction<br/>customer, product and price matching"]
         OI[("Order Intake + Lines<br/>+ email files")]
-        CASE[("Review Case")]
+        RCASE[("Review Case")]
         ORD[("Order + Order Products")]
         AGENT["Agentforce employee agent<br/>Order Intake Assistant<br/>10 Apex actions"]
         NC["Named Credential<br/>Order_Intake_Mule<br/>(X-Api-Key)"]
@@ -45,28 +45,28 @@ flowchart LR
         GH["agentforce-order-intake<br/>GitHub Actions: deploy on push"]
     end
 
-    DEALER -- "1 PO email<br/>(PDF or typed)" --> INBOX
-    INBOX -- "2 IMAP poll (label Orders, unread)" --> INGEST
-    INGEST -- "3 upsert intake, upload attachments" --> OI
-    INGEST -- "4 classify" --> PT1
-    INGEST -- "5a PDF: analyze" --> DOCINT
-    INGEST -- "5b no PDF: extract from body" --> PT2
-    INGEST -- "6 extraction" --> REST
+    DEALER -->|"1 PO email<br/>(PDF or typed)"| INBOX
+    INBOX -->|"2 IMAP poll (label Orders, unread)"| INGEST
+    INGEST -->|"3 upsert intake, upload attachments"| OI
+    INGEST -->|"4 classify"| PT1
+    INGEST -->|"5a PDF: analyze"| DOCINT
+    INGEST -->|"5b no PDF: extract from body"| PT2
+    INGEST -->|"6 extraction"| REST
     REST --> OI
-    REST -- "7a clean: create order" --> ORD
-    OI -- "7b exceptions or error: trigger" --> CASE
-    INGEST -- "8 'order created' reply + move label" --> INBOX
-    INBOX -. reply .-> DEALER
-    REP -- "9 resolve, create, send to ERP" --> AGENT
+    REST -->|"7a clean: create order"| ORD
+    OI -->|"7b exceptions or error: trigger"| RCASE
+    INGEST -->|"8 order created reply + move label"| INBOX
+    INBOX -.->|"reply"| DEALER
+    REP -->|"9 resolve, create, send to ERP"| AGENT
     AGENT --> OI
     AGENT --> ORD
     AGENT --> NC
-    NC -- "10 HTTPS + X-Api-Key" --> ERPAPI
-    ERPAPI -- "11 JSON-2 API" --> ODOO
-    ORD -. "Order created closes Case" .-> CASE
-    GH -. deploy .-> INGEST
-    GH -. deploy .-> ERPAPI
-    GH -. deploy .-> SF
+    NC -->|"10 HTTPS + X-Api-Key"| ERPAPI
+    ERPAPI -->|"11 JSON-2 API"| ODOO
+    ORD -.->|"Order created closes Case"| RCASE
+    GH -.->|"deploy"| INGEST
+    GH -.->|"deploy"| ERPAPI
+    GH -.->|"deploy"| SF
 ```
 
 ### Components
